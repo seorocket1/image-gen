@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { X, Mail, UserCheck, Sparkles, Eye, EyeOff, User, Globe, Building } from 'lucide-react';
+import { X, Mail, Sparkles, Eye, EyeOff, User, Globe, Building } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSignInWithEmail: (email: string, password: string) => Promise<boolean>;
-  onSignInAnonymously: () => Promise<boolean>;
+  onSignUp: (signUpData: any) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onSignInWithEmail,
-  onSignInAnonymously,
+  onSignUp,
 }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -38,40 +38,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setShowPassword(false);
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    if (isSignUp) {
-      // For now, just show message that sign up is not available
-      setError('Account creation is currently not available. Please sign in with existing credentials or continue anonymously.');
+    try {
+      if (isSignUp) {
+        const result = await onSignUp({
+          email,
+          password,
+          firstName,
+          lastName,
+          websiteUrl: websiteUrl || undefined,
+          brandName: brandName || undefined,
+        });
+
+        if (result.success) {
+          onClose();
+          resetForm();
+        } else {
+          setError(result.error || 'Sign up failed. Please try again.');
+        }
+      } else {
+        const success = await onSignInWithEmail(email, password);
+        if (success) {
+          onClose();
+          resetForm();
+        } else {
+          setError('Invalid credentials. Please try again.');
+        }
+      }
+    } catch (error: any) {
+      setError(error.message || 'An error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const success = await onSignInWithEmail(email, password);
-    if (success) {
-      onClose();
-      resetForm();
-    } else {
-      setError('Invalid credentials. Please try again.');
-    }
-    setIsLoading(false);
-  };
-
-  const handleAnonymousSignIn = async () => {
-    setIsLoading(true);
-    setError('');
-
-    const success = await onSignInAnonymously();
-    if (success) {
-      onClose();
-      resetForm();
-    } else {
-      setError('Failed to sign in anonymously. Please try again.');
-    }
-    setIsLoading(false);
   };
 
   const toggleMode = () => {
@@ -116,17 +118,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* Sign Up Notice */}
-          {isSignUp && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <p className="text-yellow-800 text-sm font-medium">
-                Account creation is currently not available. Please sign in with existing credentials or continue anonymously.
-              </p>
-            </div>
-          )}
-
-          {/* Email Auth Form */}
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          {/* Auth Form */}
+          <form onSubmit={handleAuth} className="space-y-4">
             {isSignUp && (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -224,6 +217,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                   placeholder="Enter your password"
                   required
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -234,6 +228,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </div>
             </div>
+
+            {isSignUp && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <p className="text-green-800 text-sm font-medium">
+                  🎉 Get 50 free credits when you sign up!
+                </p>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -248,7 +250,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ) : (
                 <div className="flex items-center justify-center">
                   <Mail className="w-5 h-5 mr-2" />
-                  {isSignUp ? 'Create Account' : 'Sign In with Email'}
+                  {isSignUp ? 'Create Account & Get 50 Credits' : 'Sign In'}
                 </div>
               )}
             </button>
@@ -267,37 +269,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </button>
           </div>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">or</span>
-            </div>
-          </div>
-
-          {/* Anonymous Sign In */}
-          <button
-            onClick={handleAnonymousSignIn}
-            disabled={isLoading}
-            className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-gray-600 to-gray-700 text-white font-semibold hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100"
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                Signing In...
-              </div>
-            ) : (
-              <div className="flex items-center justify-center">
-                <UserCheck className="w-5 h-5 mr-2" />
-                Continue Anonymously (10 Free Credits)
-              </div>
-            )}
-          </button>
-
           <p className="text-xs text-gray-500 text-center">
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            By {isSignUp ? 'creating an account' : 'signing in'}, you agree to our Terms of Service and Privacy Policy
           </p>
         </div>
       </div>

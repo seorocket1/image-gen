@@ -49,15 +49,18 @@ export const useAuth = () => {
 
       if (error) throw error;
 
+      const { data: authUser } = await supabase.auth.getUser();
+
       const user: User = {
         id: profile.id,
-        email: (await supabase.auth.getUser()).data.user?.email,
+        email: authUser.user?.email,
         firstName: profile.first_name,
         lastName: profile.last_name,
         websiteUrl: profile.website_url,
         brandName: profile.brand_name,
         credits: profile.credits,
         isAnonymous: false,
+        isAdmin: profile.is_admin || false,
         createdAt: new Date(profile.created_at),
       };
 
@@ -116,31 +119,6 @@ export const useAuth = () => {
     }
   };
 
-  const signInAnonymously = async (): Promise<boolean> => {
-    try {
-      // For demo purposes, create a temporary user
-      const user: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        firstName: 'Anonymous',
-        lastName: 'User',
-        credits: 10, // Limited credits for anonymous users
-        isAnonymous: true,
-        createdAt: new Date(),
-      };
-
-      setAuthState({
-        user,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Anonymous sign in error:', error);
-      return false;
-    }
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setAuthState({
@@ -151,15 +129,7 @@ export const useAuth = () => {
   };
 
   const deductCredits = async (amount: number, imageType: 'blog' | 'infographic'): Promise<boolean> => {
-    if (!authState.user || authState.user.isAnonymous) {
-      // For anonymous users, just update local state
-      if (authState.user && authState.user.credits >= amount) {
-        setAuthState(prev => ({
-          ...prev,
-          user: prev.user ? { ...prev.user, credits: prev.user.credits - amount } : null,
-        }));
-        return true;
-      }
+    if (!authState.user) {
       return false;
     }
 
@@ -186,7 +156,7 @@ export const useAuth = () => {
   };
 
   const refreshCredits = async () => {
-    if (authState.user && !authState.user.isAnonymous) {
+    if (authState.user) {
       await loadUserProfile(authState.user.id);
     }
   };
@@ -195,7 +165,6 @@ export const useAuth = () => {
     ...authState,
     signUp,
     signInWithEmail,
-    signInAnonymously,
     signOut,
     deductCredits,
     refreshCredits,

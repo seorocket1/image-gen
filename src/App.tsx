@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Zap, LogOut, User, Bell } from 'lucide-react';
+import { Sparkles, Zap, LogOut, User, Bell, Shield } from 'lucide-react';
 import { ImageTypeSelector } from './components/ImageTypeSelector';
 import { BlogImageForm } from './components/BlogImageForm';
 import { InfographicForm } from './components/InfographicForm';
 import { ImagePreview } from './components/ImagePreview';
 import { ProgressSteps } from './components/ProgressSteps';
 import { AuthModal } from './components/AuthModal';
+import { AdminPanel } from './components/AdminPanel';
 import { NotificationBanner } from './components/NotificationBanner';
 import { NotificationSidebar } from './components/NotificationSidebar';
 import { ImageTypeSwitch } from './components/ImageTypeSwitch';
@@ -34,7 +35,7 @@ const CREDIT_COSTS = {
 };
 
 function App() {
-  const { user, isAuthenticated, isLoading: authLoading, signInWithEmail, signInAnonymously, signOut, deductCredits } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, signInWithEmail, signUp, signOut, deductCredits } = useAuth();
   const { 
     notifications, 
     unreadCount, 
@@ -55,6 +56,7 @@ function App() {
   } = useBulkProcessing();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showNotificationSidebar, setShowNotificationSidebar] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('select');
@@ -335,7 +337,7 @@ function App() {
               onClick={() => setShowAuthModal(true)}
               className="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg text-lg"
             >
-              Get Started Free
+              Get Started - 50 Free Credits
             </button>
           </div>
         </main>
@@ -370,7 +372,7 @@ function App() {
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
           onSignInWithEmail={signInWithEmail}
-          onSignInAnonymously={signInAnonymously}
+          onSignUp={signUp}
         />
       </div>
     );
@@ -405,6 +407,17 @@ function App() {
                   />
                 )}
 
+                {/* Admin Panel Button */}
+                {user?.isAdmin && (
+                  <button
+                    onClick={() => setShowAdminPanel(true)}
+                    className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+                    title="Admin Panel"
+                  >
+                    <Shield className="w-5 h-5" />
+                  </button>
+                )}
+
                 {/* Notification Button */}
                 <button
                   onClick={() => setShowNotificationSidebar(true)}
@@ -421,7 +434,12 @@ function App() {
                 
                 <div className="flex items-center text-sm text-gray-600">
                   <User className="w-4 h-4 mr-2" />
-                  {user?.isAnonymous ? 'Anonymous' : user?.email || `${user?.firstName} ${user?.lastName}`}
+                  {user?.email || `${user?.firstName} ${user?.lastName}`}
+                  {user?.isAdmin && (
+                    <span className="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                      Admin
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={signOut}
@@ -595,6 +613,12 @@ function App() {
         onToggleSound={toggleSound}
         onRemoveNotification={removeNotification}
         onNotificationClick={handleNotificationClick}
+      />
+
+      {/* Admin Panel */}
+      <AdminPanel
+        isOpen={showAdminPanel}
+        onClose={() => setShowAdminPanel(false)}
       />
 
       {/* Bulk Processing Status - Only show when actively processing */}

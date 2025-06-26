@@ -7,6 +7,7 @@ export interface User {
   brandName?: string;
   credits: number;
   isAnonymous: boolean;
+  isAdmin?: boolean;
   createdAt: Date;
 }
 

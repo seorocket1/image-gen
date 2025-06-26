@@ -265,6 +265,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   };
 
   const processBulkItems = async () => {
+    console.log('processBulkItems called'); // Debug log
+    
     const validItems = items.filter(item => {
       if (item.type === 'blog') {
         return item.data.title?.trim() && item.data.intro?.trim();
@@ -272,6 +274,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         return item.data.content?.trim();
       }
     });
+
+    console.log('Valid items:', validItems.length); // Debug log
 
     if (validItems.length === 0) {
       addNotification({
@@ -286,6 +290,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     const creditCost = CREDIT_COSTS[imageType];
     const totalCreditsNeeded = validItems.length * creditCost;
     
+    console.log('Credits needed:', totalCreditsNeeded, 'User credits:', user?.credits); // Debug log
+    
     if (!user || user.credits < totalCreditsNeeded) {
       addNotification({
         type: 'error',
@@ -294,6 +300,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       });
       return;
     }
+
+    console.log('Starting bulk processing...'); // Debug log
 
     // Deduct credits upfront for all items
     const creditsDeducted = await deductCredits(totalCreditsNeeded, imageType);
@@ -305,6 +313,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       });
       return;
     }
+
+    console.log('Credits deducted successfully'); // Debug log
 
     const bulkId = startBulkProcessing(validItems.length, imageType);
     const updatedItems = [...items];
@@ -321,6 +331,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       imageCount: validItems.length,
     });
 
+    console.log('Starting processing loop...'); // Debug log
+
     for (let i = 0; i < updatedItems.length; i++) {
       const item = updatedItems[i];
       
@@ -333,6 +345,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       }
       
       if (item.status !== 'pending') continue;
+
+      console.log(`Processing item ${i + 1}:`, item.id); // Debug log
 
       updatedItems[i] = { ...updatedItems[i], status: 'processing' };
       setItems([...updatedItems]);
@@ -349,7 +363,11 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       
       processedCount++;
       updateProgress(processedCount);
+      
+      console.log(`Completed item ${i + 1}, total processed: ${processedCount}`); // Debug log
     }
+
+    console.log('Bulk processing completed'); // Debug log
 
     // Add completion notification
     addNotification({
@@ -869,7 +887,10 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
             <div className="bg-gray-50 p-6 border-t border-gray-200 flex-shrink-0">
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
-                  onClick={processBulkItems}
+                  onClick={() => {
+                    console.log('Process button clicked'); // Debug log
+                    processBulkItems();
+                  }}
                   disabled={isProcessing || validItemsCount === 0 || (user && user.credits < totalCreditsNeeded)}
                   className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >

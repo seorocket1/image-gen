@@ -351,8 +351,6 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       updateProgress(processedCount);
     }
 
-    completeBulkProcessing();
-    
     // Add completion notification
     addNotification({
       type: 'success',
@@ -362,7 +360,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       bulkProcessingId: bulkId,
       imageType,
       imageCount: processedCount,
-      duration: 8000,
+      duration: 3000, // Auto-dismiss after 3 seconds
     });
     
     // Clear saved items after successful completion

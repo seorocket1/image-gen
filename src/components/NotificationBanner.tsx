@@ -20,16 +20,16 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
     // Animate in
     const timer = setTimeout(() => setIsVisible(true), 100);
     
-    // Auto-dismiss after 3 seconds
+    // Auto-dismiss after duration (default 3 seconds)
     const dismissTimer = setTimeout(() => {
       handleClose();
-    }, 3000);
+    }, notification.duration || 3000);
     
     return () => {
       clearTimeout(timer);
       clearTimeout(dismissTimer);
     };
-  }, []);
+  }, [notification.duration]);
 
   const handleClose = () => {
     setIsLeaving(true);

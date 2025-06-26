@@ -75,15 +75,18 @@ function App() {
     }
   };
 
-  // Auto-dismiss banner after 3 seconds
+  // Auto-dismiss banner after specified duration
   useEffect(() => {
     if (activeBanner) {
+      const notification = notifications.find(n => n.id === activeBanner);
+      const duration = notification?.duration || 3000;
+      
       const timer = setTimeout(() => {
         setActiveBanner(null);
-      }, 3000);
+      }, duration);
       return () => clearTimeout(timer);
     }
-  }, [activeBanner]);
+  }, [activeBanner, notifications]);
 
   // Listen for bulk processing completion
   useEffect(() => {
@@ -95,7 +98,7 @@ function App() {
         imageCount: totalCount,
         imageType: bulkImageType || undefined,
         isBulkProcessing: true,
-        duration: 8000,
+        duration: 3000, // Auto-dismiss after 3 seconds
       });
       setActiveBanner(notificationId);
     }

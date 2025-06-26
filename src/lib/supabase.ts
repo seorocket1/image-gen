@@ -22,6 +22,7 @@ export type Database = {
           credits: number;
           created_at: string;
           updated_at: string;
+          is_admin: boolean | null;
         };
         Insert: {
           id: string;
@@ -32,6 +33,7 @@ export type Database = {
           credits?: number;
           created_at?: string;
           updated_at?: string;
+          is_admin?: boolean | null;
         };
         Update: {
           id?: string;
@@ -42,6 +44,7 @@ export type Database = {
           credits?: number;
           created_at?: string;
           updated_at?: string;
+          is_admin?: boolean | null;
         };
       };
       credit_transactions: {
@@ -71,6 +74,26 @@ export type Database = {
           description?: string;
           image_type?: 'blog' | 'infographic' | null;
           created_at?: string;
+        };
+      };
+      admin_settings: {
+        Row: {
+          id: string;
+          admin_exists: boolean | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          admin_exists?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          admin_exists?: boolean | null;
+          created_at?: string | null;
+          updated_at?: string | null;
         };
       };
     };

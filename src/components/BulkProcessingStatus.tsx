@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Clock, Zap, CheckCircle } from 'lucide-react';
+import { Package, Clock, Zap, CheckCircle, Eye } from 'lucide-react';
 
 interface BulkProcessingStatusProps {
   isProcessing: boolean;
@@ -46,15 +46,16 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
                 {isComplete ? 'Bulk Processing Complete!' : 'Bulk Processing'}
               </h4>
               <p className="text-xs text-gray-500">
-                {processedCount}/{totalCount} images
+                Processing image {processedCount + 1} of {totalCount}
               </p>
             </div>
           </div>
           
           <button
             onClick={onOpenBulkModal}
-            className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+            className="flex items-center text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
           >
+            <Eye className="w-3 h-3 mr-1" />
             View Details
           </button>
         </div>
@@ -87,6 +88,15 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
           </div>
           <span>{Math.round(progress)}%</span>
         </div>
+
+        {/* Current Processing Info */}
+        {!isComplete && (
+          <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-700 font-medium">
+              Currently generating image {processedCount + 1}...
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

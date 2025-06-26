@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Info, AlertTriangle, X, Package } from 'lucide-react';
 import { Notification } from '../types/notifications';
 
 interface NotificationBannerProps {
   notification: Notification;
   onClose: () => void;
+  onNotificationClick?: (notification: Notification) => void;
 }
 
 export const NotificationBanner: React.FC<NotificationBannerProps> = ({
   notification,
   onClose,
+  onNotificationClick,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -40,7 +42,17 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
     }, 300);
   };
 
+  const handleClick = () => {
+    if (onNotificationClick && notification.isBulkProcessing) {
+      onNotificationClick(notification);
+    }
+  };
+
   const getIcon = () => {
+    if (notification.isBulkProcessing) {
+      return <Package className="w-5 h-5 text-blue-500" />;
+    }
+    
     switch (notification.type) {
       case 'success':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -55,6 +67,10 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
   };
 
   const getBgColor = () => {
+    if (notification.isBulkProcessing) {
+      return 'bg-blue-50 border-blue-200';
+    }
+    
     switch (notification.type) {
       case 'success':
         return 'bg-green-50 border-green-200';
@@ -76,7 +92,12 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
           : 'translate-x-full opacity-0'
       }`}
     >
-      <div className={`rounded-xl border-2 p-4 shadow-lg backdrop-blur-sm ${getBgColor()}`}>
+      <div 
+        className={`rounded-xl border-2 p-4 shadow-lg backdrop-blur-sm ${getBgColor()} ${
+          notification.isBulkProcessing ? 'cursor-pointer hover:shadow-xl transition-shadow' : ''
+        }`}
+        onClick={handleClick}
+      >
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0 mt-0.5">
             {getIcon()}
@@ -93,9 +114,17 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
                 {notification.imageCount} image{notification.imageCount > 1 ? 's' : ''} processed
               </p>
             )}
+            {notification.isBulkProcessing && (
+              <p className="text-xs text-blue-600 mt-2 font-medium">
+                Click to view bulk processing details
+              </p>
+            )}
           </div>
           <button
-            onClick={handleClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
             className="flex-shrink-0 p-1 hover:bg-white/50 rounded-lg transition-colors"
           >
             <X className="w-4 h-4 text-gray-400" />

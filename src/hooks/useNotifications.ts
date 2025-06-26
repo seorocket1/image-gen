@@ -32,6 +32,11 @@ export const useNotifications = () => {
       } catch (error) {
         console.error('Error loading notifications:', error);
       }
+    } else {
+      setState(prev => ({
+        ...prev,
+        soundEnabled: savedSoundEnabled !== null ? JSON.parse(savedSoundEnabled) : true,
+      }));
     }
   }, []);
 

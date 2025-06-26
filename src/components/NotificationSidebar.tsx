@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Bell, BellOff, Trash2, CheckCheck, Clock, Image, FileText } from 'lucide-react';
+import { X, Bell, BellOff, Trash2, CheckCheck, Clock, Image, FileText, Package } from 'lucide-react';
 import { Notification } from '../types/notifications';
 
 interface NotificationSidebarProps {
@@ -13,6 +13,7 @@ interface NotificationSidebarProps {
   onClearAll: () => void;
   onToggleSound: () => void;
   onRemoveNotification: (id: string) => void;
+  onNotificationClick?: (notification: Notification) => void;
 }
 
 export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
@@ -26,6 +27,7 @@ export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
   onClearAll,
   onToggleSound,
   onRemoveNotification,
+  onNotificationClick,
 }) => {
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -41,12 +43,25 @@ export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
   };
 
   const getNotificationIcon = (notification: Notification) => {
+    if (notification.isBulkProcessing) {
+      return <Package className="w-4 h-4 text-blue-500" />;
+    }
     if (notification.imageType === 'blog') {
       return <FileText className="w-4 h-4 text-blue-500" />;
     } else if (notification.imageType === 'infographic') {
       return <Image className="w-4 h-4 text-purple-500" />;
     }
     return <Bell className="w-4 h-4 text-gray-500" />;
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.read) {
+      onMarkAsRead(notification.id);
+    }
+    if (notification.isBulkProcessing && onNotificationClick) {
+      onNotificationClick(notification);
+      onClose();
+    }
   };
 
   return (
@@ -146,11 +161,21 @@ export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
                       notification.read
                         ? 'bg-white border-gray-200'
                         : 'bg-blue-50 border-blue-200 shadow-sm'
+                    } ${
+                      notification.isBulkProcessing ? 'cursor-pointer hover:bg-blue-100' : ''
                     }`}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     {/* Unread indicator */}
                     {!notification.read && (
                       <div className="absolute top-3 left-3 w-2 h-2 bg-blue-500 rounded-full" />
+                    )}
+
+                    {/* Bulk processing badge */}
+                    {notification.isBulkProcessing && (
+                      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                        Bulk
+                      </div>
                     )}
 
                     <div className="flex items-start space-x-3 ml-4">
@@ -168,7 +193,10 @@ export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
                           <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {!notification.read && (
                               <button
-                                onClick={() => onMarkAsRead(notification.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMarkAsRead(notification.id);
+                                }}
                                 className="p-1 hover:bg-gray-200 rounded transition-colors"
                                 title="Mark as read"
                               >
@@ -176,7 +204,10 @@ export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
                               </button>
                             )}
                             <button
-                              onClick={() => onRemoveNotification(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveNotification(notification.id);
+                              }}
                               className="p-1 hover:bg-red-100 rounded transition-colors"
                               title="Remove notification"
                             >
@@ -190,6 +221,12 @@ export const NotificationSidebar: React.FC<NotificationSidebarProps> = ({
                         }`}>
                           {notification.message}
                         </p>
+                        
+                        {notification.isBulkProcessing && (
+                          <p className="text-xs text-blue-600 mt-1 font-medium">
+                            Click to view bulk processing details
+                          </p>
+                        )}
                         
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center text-xs text-gray-500">

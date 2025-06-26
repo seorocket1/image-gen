@@ -34,7 +34,10 @@ export const ImageTypeSwitch: React.FC<ImageTypeSwitchProps> = ({
               Currently: {currentType === 'blog' ? 'Blog Featured Image' : 'Infographic Image'}
             </p>
             <p className="text-xs text-gray-500">
-              Switch to create {otherType === 'blog' ? 'blog featured images' : 'infographic images'}
+              {disabled 
+                ? 'Cannot switch during bulk processing'
+                : `Switch to create ${otherType === 'blog' ? 'blog featured images' : 'infographic images'}`
+              }
             </p>
           </div>
         </div>
@@ -51,7 +54,9 @@ export const ImageTypeSwitch: React.FC<ImageTypeSwitchProps> = ({
           }`}
         >
           <div className={`flex items-center justify-center w-5 h-5 rounded mr-2 ${
-            otherType === 'blog' ? 'bg-blue-200' : 'bg-purple-200'
+            disabled 
+              ? 'bg-gray-200'
+              : otherType === 'blog' ? 'bg-blue-200' : 'bg-purple-200'
           }`}>
             {otherType === 'blog' ? (
               <FileText className="w-3 h-3" />

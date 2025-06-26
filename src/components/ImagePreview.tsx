@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Sparkles, ZoomIn, ZoomOut, RotateCcw, Download, X, Lightbulb, Brush, Palette, Zap } from 'lucide-react';
+import { Image as ImageIcon, Sparkles, ZoomIn, ZoomOut, RotateCcw, Download, X, Lightbulb, Brush, Palette, Zap, Package, Eye } from 'lucide-react';
 import { ImageDownload } from './ImageDownload';
+import { useBulkProcessing } from '../hooks/useBulkProcessing';
 
 interface ImagePreviewProps {
   isLoading: boolean;
@@ -29,24 +30,32 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const [currentStep, setCurrentStep] = useState(0);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+
+  const { 
+    isProcessing: isBulkProcessing, 
+    processedCount, 
+    totalCount,
+    getEstimatedTimeRemaining 
+  } = useBulkProcessing();
 
   // Cycle through loading steps every 10 seconds
   useEffect(() => {
-    if (!isLoading) return;
+    if (!isLoading && !isBulkProcessing) return;
 
     const interval = setInterval(() => {
       setCurrentStep(prev => (prev + 1) % LOADING_STEPS.length);
     }, 10000); // Change every 10 seconds
 
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isLoading, isBulkProcessing]);
 
   // Reset step when loading starts
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || isBulkProcessing) {
       setCurrentStep(0);
     }
-  }, [isLoading]);
+  }, [isLoading, isBulkProcessing]);
 
   const handleZoomIn = () => {
     setZoomLevel(prev => Math.min(prev + 0.25, 3));
@@ -60,7 +69,91 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
     setZoomLevel(1);
   };
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
   const renderPreviewContent = () => {
+    // Show bulk processing status if active
+    if (isBulkProcessing) {
+      const currentLoadingStep = LOADING_STEPS[currentStep];
+      const StepIcon = currentLoadingStep.icon;
+      const estimatedTime = getEstimatedTimeRemaining();
+
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-center p-6">
+          {/* Animated Loading Container */}
+          <div className={`relative mb-8 p-6 rounded-2xl ${currentLoadingStep.bgColor} border border-opacity-20 transition-all duration-1000`}>
+            <div className="relative">
+              {/* Pulsing Background Circle */}
+              <div className={`w-20 h-20 rounded-full ${currentLoadingStep.color.replace('text-', 'bg-')} opacity-20 animate-pulse absolute inset-0`}></div>
+              
+              {/* Main Icon */}
+              <div className="relative w-20 h-20 rounded-full bg-white shadow-lg flex items-center justify-center">
+                <Package className={`w-10 h-10 text-blue-500 animate-pulse`} />
+              </div>
+              
+              {/* Rotating Border */}
+              <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-transparent border-t-blue-500 animate-spin opacity-30"></div>
+            </div>
+          </div>
+
+          {/* Bulk Processing Information */}
+          <div className="space-y-4 max-w-md">
+            <h3 className="text-2xl font-bold text-gray-900">Bulk Processing Active</h3>
+            
+            {/* Current Step Display */}
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+              <div className="flex items-center justify-center mb-2">
+                <Package className="w-5 h-5 mr-3 text-blue-500 animate-pulse" />
+                <p className="font-semibold text-blue-700">
+                  Processing image {processedCount + 1} of {totalCount}
+                </p>
+              </div>
+              <p className="text-blue-700 font-medium animate-pulse">
+                {currentLoadingStep.text}
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div 
+                className="h-3 rounded-full transition-all duration-1000 bg-blue-500"
+                style={{ width: `${totalCount > 0 ? ((processedCount / totalCount) * 100) : 0}%` }}
+              />
+            </div>
+
+            {/* Additional Info */}
+            <div className="flex flex-col items-center text-sm text-gray-500 space-y-2">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  SEO Engine AI at work
+                </div>
+                {estimatedTime && (
+                  <>
+                    <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                    <div>{formatTime(estimatedTime)} remaining</div>
+                  </>
+                )}
+              </div>
+              
+              {/* View Bulk Processing Button */}
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="mt-4 flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                View Bulk Processing
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (isLoading) {
       const currentLoadingStep = LOADING_STEPS[currentStep];
       const StepIcon = currentLoadingStep.icon;

@@ -76,7 +76,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     currentProcessing, 
     startBulkProcessing, 
     updateProgress, 
-    completeBulkProcessing 
+    completeBulkProcessing,
+    bulkProcessingId 
   } = useBulkProcessing();
   
   const { addNotification } = useNotifications();
@@ -273,9 +274,20 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       return;
     }
 
-    startBulkProcessing(validItems.length);
+    const bulkId = startBulkProcessing(validItems.length, imageType);
     const updatedItems = [...items];
     let processedCount = 0;
+
+    // Add bulk processing notification
+    addNotification({
+      type: 'info',
+      title: 'Bulk Processing Started',
+      message: `Processing ${validItems.length} ${imageType} images. You can close this modal and continue working.`,
+      isBulkProcessing: true,
+      bulkProcessingId: bulkId,
+      imageType,
+      imageCount: validItems.length,
+    });
 
     for (let i = 0; i < updatedItems.length; i++) {
       const item = updatedItems[i];
@@ -308,6 +320,18 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     }
 
     completeBulkProcessing();
+    
+    // Add completion notification
+    addNotification({
+      type: 'success',
+      title: 'Bulk Processing Complete!',
+      message: `Successfully generated ${processedCount} ${imageType} images. All your images are ready for download.`,
+      isBulkProcessing: true,
+      bulkProcessingId: bulkId,
+      imageType,
+      imageCount: processedCount,
+      duration: 8000,
+    });
     
     // Clear saved items after successful completion
     localStorage.removeItem(`bulk_items_${imageType}`);

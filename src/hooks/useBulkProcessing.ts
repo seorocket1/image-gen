@@ -6,6 +6,8 @@ interface BulkProcessingState {
   processedCount: number;
   totalCount: number;
   startTime: Date | null;
+  bulkProcessingId: string | null;
+  imageType: 'blog' | 'infographic' | null;
 }
 
 const STORAGE_KEY = 'seo_engine_bulk_processing';
@@ -31,6 +33,8 @@ export const useBulkProcessing = () => {
       processedCount: 0,
       totalCount: 0,
       startTime: null,
+      bulkProcessingId: null,
+      imageType: null,
     };
   });
 
@@ -38,16 +42,20 @@ export const useBulkProcessing = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
   }, []);
 
-  const startBulkProcessing = useCallback((totalCount: number) => {
+  const startBulkProcessing = useCallback((totalCount: number, imageType: 'blog' | 'infographic') => {
+    const bulkProcessingId = `bulk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newState: BulkProcessingState = {
       isProcessing: true,
       currentProcessing: null,
       processedCount: 0,
       totalCount,
       startTime: new Date(),
+      bulkProcessingId,
+      imageType,
     };
     setState(newState);
     saveState(newState);
+    return bulkProcessingId;
   }, [saveState]);
 
   const updateProgress = useCallback((processedCount: number, currentProcessing: string | null = null) => {
@@ -69,6 +77,8 @@ export const useBulkProcessing = () => {
       processedCount: 0,
       totalCount: 0,
       startTime: null,
+      bulkProcessingId: null,
+      imageType: null,
     };
     setState(newState);
     localStorage.removeItem(STORAGE_KEY);

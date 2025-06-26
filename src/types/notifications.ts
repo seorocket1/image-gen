@@ -8,6 +8,8 @@ export interface Notification {
   imageType?: 'blog' | 'infographic';
   imageCount?: number;
   duration?: number; // Auto-dismiss duration in ms
+  isBulkProcessing?: boolean;
+  bulkProcessingId?: string;
 }
 
 export interface NotificationState {

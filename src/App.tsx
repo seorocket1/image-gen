@@ -10,6 +10,7 @@ import { NotificationBanner } from './components/NotificationBanner';
 import { NotificationSidebar } from './components/NotificationSidebar';
 import { ImageTypeSwitch } from './components/ImageTypeSwitch';
 import { BulkProcessingStatus } from './components/BulkProcessingStatus';
+import { BulkProcessingModal } from './components/BulkProcessingModal';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useBulkProcessing } from './hooks/useBulkProcessing';
@@ -43,10 +44,12 @@ function App() {
     processedCount,
     totalCount,
     getEstimatedTimeRemaining,
+    imageType: bulkImageType,
   } = useBulkProcessing();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showNotificationSidebar, setShowNotificationSidebar] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('select');
   const [selectedType, setSelectedType] = useState<ImageType>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,13 +74,15 @@ function App() {
       const notificationId = addNotification({
         type: 'success',
         title: 'Bulk Processing Complete!',
-        message: `Successfully generated ${totalCount} images. All your images are ready for download.`,
+        message: `Successfully generated ${totalCount} ${bulkImageType} images. All your images are ready for download.`,
         imageCount: totalCount,
+        imageType: bulkImageType || undefined,
+        isBulkProcessing: true,
         duration: 8000,
       });
       setActiveBanner(notificationId);
     }
-  }, [isBulkProcessing, processedCount, totalCount, addNotification]);
+  }, [isBulkProcessing, processedCount, totalCount, bulkImageType, addNotification]);
 
   const handleTypeSelect = (type: 'blog' | 'infographic') => {
     setSelectedType(type);
@@ -206,6 +211,16 @@ function App() {
       setCurrentStep('form');
       setGeneratedImage(null);
       setError(null);
+    }
+  };
+
+  const handleNotificationClick = (notification: any) => {
+    if (notification.isBulkProcessing) {
+      setShowBulkModal(true);
+      if (notification.imageType) {
+        setSelectedType(notification.imageType);
+        setCurrentStep('form');
+      }
     }
   };
 
@@ -431,6 +446,13 @@ function App() {
                         : 'Provide your content to create a visual infographic'
                       }
                     </p>
+                    {isBulkProcessing && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-700 font-medium">
+                          Bulk processing is active. Single image generation is disabled.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex-1 p-4 sm:p-8 overflow-y-auto">
@@ -479,6 +501,7 @@ function App() {
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 SEO Engine
               </span>
+            
             </div>
             <p className="text-gray-600 mb-2">
               Empowering content creators with AI-driven visual solutions
@@ -495,6 +518,7 @@ function App() {
         <NotificationBanner
           notification={notifications.find(n => n.id === activeBanner)!}
           onClose={() => setActiveBanner(null)}
+          onNotificationClick={handleNotificationClick}
         />
       )}
 
@@ -510,6 +534,7 @@ function App() {
         onClearAll={clearAllNotifications}
         onToggleSound={toggleSound}
         onRemoveNotification={removeNotification}
+        onNotificationClick={handleNotificationClick}
       />
 
       {/* Bulk Processing Status */}
@@ -518,10 +543,14 @@ function App() {
         processedCount={processedCount}
         totalCount={totalCount}
         estimatedTimeRemaining={getEstimatedTimeRemaining()}
-        onOpenBulkModal={() => {
-          // This will be handled by the bulk modal components
-          console.log('Open bulk modal');
-        }}
+        onOpenBulkModal={() => setShowBulkModal(true)}
+      />
+
+      {/* Bulk Processing Modal */}
+      <BulkProcessingModal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        imageType={selectedType || 'blog'}
       />
     </div>
   );

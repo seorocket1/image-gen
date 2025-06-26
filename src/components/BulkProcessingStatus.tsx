@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Clock, Zap, CheckCircle, Eye } from 'lucide-react';
+import { Package, Clock, Zap, CheckCircle, Eye, X } from 'lucide-react';
 
 interface BulkProcessingStatusProps {
   isProcessing: boolean;
@@ -16,10 +16,14 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
   estimatedTimeRemaining,
   onOpenBulkModal,
 }) => {
+  // Don't show if not processing
   if (!isProcessing) return null;
 
   const progress = totalCount > 0 ? (processedCount / totalCount) * 100 : 0;
   const isComplete = processedCount === totalCount && totalCount > 0;
+
+  // Hide the component when processing is complete
+  if (isComplete) return null;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -32,18 +36,12 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 max-w-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-lg mr-3 ${
-              isComplete ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'
-            }`}>
-              {isComplete ? (
-                <CheckCircle className="w-4 h-4" />
-              ) : (
-                <Package className="w-4 h-4 animate-pulse" />
-              )}
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg mr-3 bg-blue-100 text-blue-600">
+              <Package className="w-4 h-4 animate-pulse" />
             </div>
             <div>
               <h4 className="text-sm font-semibold text-gray-900">
-                {isComplete ? 'Bulk Processing Complete!' : 'Bulk Processing'}
+                Bulk Processing
               </h4>
               <p className="text-xs text-gray-500">
                 Processing image {processedCount + 1} of {totalCount}
@@ -63,9 +61,7 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
         {/* Progress Bar */}
         <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
           <div 
-            className={`h-2 rounded-full transition-all duration-300 ${
-              isComplete ? 'bg-green-500' : 'bg-blue-500'
-            }`}
+            className="h-2 rounded-full transition-all duration-300 bg-blue-500"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -73,16 +69,10 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
         {/* Status Info */}
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center">
-            {!isComplete && estimatedTimeRemaining && (
+            {estimatedTimeRemaining && (
               <>
                 <Clock className="w-3 h-3 mr-1" />
                 {formatTime(estimatedTimeRemaining)} remaining
-              </>
-            )}
-            {isComplete && (
-              <>
-                <Zap className="w-3 h-3 mr-1" />
-                All images ready!
               </>
             )}
           </div>
@@ -90,13 +80,11 @@ export const BulkProcessingStatus: React.FC<BulkProcessingStatusProps> = ({
         </div>
 
         {/* Current Processing Info */}
-        {!isComplete && (
-          <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-700 font-medium">
-              Currently generating image {processedCount + 1}...
-            </p>
-          </div>
-        )}
+        <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+          <p className="text-xs text-blue-700 font-medium">
+            Currently generating image {processedCount + 1}...
+          </p>
+        </div>
       </div>
     </div>
   );

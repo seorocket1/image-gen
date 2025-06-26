@@ -19,6 +19,19 @@ export const useBulkProcessing = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        // If processing is complete, don't restore the state
+        if (parsed.processedCount >= parsed.totalCount && parsed.totalCount > 0) {
+          localStorage.removeItem(STORAGE_KEY);
+          return {
+            isProcessing: false,
+            currentProcessing: null,
+            processedCount: 0,
+            totalCount: 0,
+            startTime: null,
+            bulkProcessingId: null,
+            imageType: null,
+          };
+        }
         return {
           ...parsed,
           startTime: parsed.startTime ? new Date(parsed.startTime) : null,
@@ -39,6 +52,11 @@ export const useBulkProcessing = () => {
   });
 
   const saveState = useCallback((newState: BulkProcessingState) => {
+    // Don't save if processing is complete
+    if (newState.processedCount >= newState.totalCount && newState.totalCount > 0) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
   }, []);
 
@@ -65,6 +83,13 @@ export const useBulkProcessing = () => {
         processedCount,
         currentProcessing,
       };
+      
+      // If processing is complete, mark as not processing
+      if (processedCount >= prev.totalCount && prev.totalCount > 0) {
+        newState.isProcessing = false;
+        newState.currentProcessing = null;
+      }
+      
       saveState(newState);
       return newState;
     });
@@ -85,7 +110,7 @@ export const useBulkProcessing = () => {
   }, []);
 
   const getEstimatedTimeRemaining = useCallback(() => {
-    if (!state.startTime || state.processedCount === 0) return null;
+    if (!state.startTime || state.processedCount === 0 || !state.isProcessing) return null;
     
     const elapsed = Date.now() - state.startTime.getTime();
     const avgTimePerItem = elapsed / state.processedCount;
@@ -93,6 +118,18 @@ export const useBulkProcessing = () => {
     
     return Math.ceil(remaining / 1000); // Return in seconds
   }, [state]);
+
+  // Auto-complete when all items are processed
+  useEffect(() => {
+    if (state.isProcessing && state.processedCount >= state.totalCount && state.totalCount > 0) {
+      // Add a small delay before completing to ensure UI updates
+      const timer = setTimeout(() => {
+        completeBulkProcessing();
+      }, 2000); // 2 second delay to show completion state
+      
+      return () => clearTimeout(timer);
+    }
+  }, [state.isProcessing, state.processedCount, state.totalCount, completeBulkProcessing]);
 
   return {
     ...state,

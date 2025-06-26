@@ -87,7 +87,7 @@ function App() {
 
   // Listen for bulk processing completion
   useEffect(() => {
-    if (isBulkProcessing && processedCount === totalCount && totalCount > 0) {
+    if (!isBulkProcessing && processedCount === totalCount && totalCount > 0) {
       const notificationId = addNotification({
         type: 'success',
         title: 'Bulk Processing Complete!',
@@ -594,7 +594,7 @@ function App() {
         onNotificationClick={handleNotificationClick}
       />
 
-      {/* Bulk Processing Status */}
+      {/* Bulk Processing Status - Only show when actively processing */}
       <BulkProcessingStatus
         isProcessing={isBulkProcessing}
         processedCount={processedCount}

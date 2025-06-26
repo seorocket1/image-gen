@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
-import { Sparkles, Zap, LogOut, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Zap, LogOut, User, Bell } from 'lucide-react';
 import { ImageTypeSelector } from './components/ImageTypeSelector';
 import { BlogImageForm } from './components/BlogImageForm';
 import { InfographicForm } from './components/InfographicForm';
 import { ImagePreview } from './components/ImagePreview';
 import { ProgressSteps } from './components/ProgressSteps';
 import { AuthModal } from './components/AuthModal';
+import { NotificationBanner } from './components/NotificationBanner';
+import { NotificationSidebar } from './components/NotificationSidebar';
+import { ImageTypeSwitch } from './components/ImageTypeSwitch';
+import { BulkProcessingStatus } from './components/BulkProcessingStatus';
 import { useAuth } from './hooks/useAuth';
+import { useNotifications } from './hooks/useNotifications';
+import { useBulkProcessing } from './hooks/useBulkProcessing';
 import { sanitizeFormData } from './utils/textSanitizer';
 
 type Step = 'select' | 'form' | 'result';
@@ -21,13 +27,33 @@ const WEBHOOK_URL = 'https://n8n.seoengine.agency/webhook/6e9e3b30-cb55-4d74-aa9
 
 function App() {
   const { user, isAuthenticated, isLoading: authLoading, signInWithEmail, signInAnonymously, signOut } = useAuth();
+  const { 
+    notifications, 
+    unreadCount, 
+    soundEnabled, 
+    addNotification, 
+    markAsRead, 
+    markAllAsRead, 
+    clearAllNotifications, 
+    toggleSound, 
+    removeNotification 
+  } = useNotifications();
+  const {
+    isProcessing: isBulkProcessing,
+    processedCount,
+    totalCount,
+    getEstimatedTimeRemaining,
+  } = useBulkProcessing();
+
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showNotificationSidebar, setShowNotificationSidebar] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('select');
   const [selectedType, setSelectedType] = useState<ImageType>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<GeneratedImage | null>(null);
   const [formData, setFormData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeBanner, setActiveBanner] = useState<string | null>(null);
 
   const steps = ['Select Type', 'Provide Content', 'Generate Image'];
   const getStepIndex = () => {
@@ -39,12 +65,34 @@ function App() {
     }
   };
 
+  // Listen for bulk processing completion
+  useEffect(() => {
+    if (isBulkProcessing && processedCount === totalCount && totalCount > 0) {
+      const notificationId = addNotification({
+        type: 'success',
+        title: 'Bulk Processing Complete!',
+        message: `Successfully generated ${totalCount} images. All your images are ready for download.`,
+        imageCount: totalCount,
+        duration: 8000,
+      });
+      setActiveBanner(notificationId);
+    }
+  }, [isBulkProcessing, processedCount, totalCount, addNotification]);
+
   const handleTypeSelect = (type: 'blog' | 'infographic') => {
     setSelectedType(type);
     setCurrentStep('form');
     setGeneratedImage(null);
     setFormData(null);
     setError(null);
+  };
+
+  const handleTypeSwitch = (type: 'blog' | 'infographic') => {
+    setSelectedType(type);
+    setGeneratedImage(null);
+    setFormData(null);
+    setError(null);
+    // Stay on form step when switching
   };
 
   const handleFormSubmit = async (data: any) => {
@@ -101,6 +149,17 @@ function App() {
           type: selectedType as 'blog' | 'infographic',
         });
         setCurrentStep('result');
+
+        // Add success notification
+        const notificationId = addNotification({
+          type: 'success',
+          title: 'Image Generated Successfully!',
+          message: `Your ${selectedType === 'blog' ? 'blog featured image' : 'infographic'} is ready for download.`,
+          imageType: selectedType as 'blog' | 'infographic',
+          imageCount: 1,
+          duration: 5000,
+        });
+        setActiveBanner(notificationId);
       } else {
         throw new Error('No image data received from the server');
       }
@@ -117,6 +176,14 @@ function App() {
       }
       
       setError(errorMessage);
+      
+      // Add error notification
+      addNotification({
+        type: 'error',
+        title: 'Image Generation Failed',
+        message: errorMessage,
+        imageType: selectedType as 'blog' | 'infographic',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -273,6 +340,20 @@ function App() {
                 Powered by <span className="font-semibold text-blue-600 ml-1">SEO Engine</span>
               </div>
               <div className="flex items-center space-x-3">
+                {/* Notification Button */}
+                <button
+                  onClick={() => setShowNotificationSidebar(true)}
+                  className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Notifications"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                
                 <div className="flex items-center text-sm text-gray-600">
                   <User className="w-4 h-4 mr-2" />
                   {user?.isAnonymous ? 'Anonymous' : user?.email || 'User'}
@@ -317,58 +398,71 @@ function App() {
             />
           </div>
         ) : (
-          // Split layout for form and preview
-          <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 min-h-[calc(100vh-300px)]">
-            {/* Left Side - Form */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-              <div className="h-full flex flex-col">
-                <div className="p-4 sm:p-8 border-b border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                      {selectedType === 'blog' ? 'Blog Featured Image' : 'Infographic Image'}
-                    </h2>
-                    <button
-                      onClick={handleBack}
-                      className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      ← Back
-                    </button>
+          <div className="space-y-6">
+            {/* Image Type Switch */}
+            {selectedType && (
+              <ImageTypeSwitch
+                currentType={selectedType}
+                onSwitch={handleTypeSwitch}
+                disabled={isLoading || isBulkProcessing}
+              />
+            )}
+
+            {/* Split layout for form and preview */}
+            <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 min-h-[calc(100vh-400px)]">
+              {/* Left Side - Form */}
+              <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
+                <div className="h-full flex flex-col">
+                  <div className="p-4 sm:p-8 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                        {selectedType === 'blog' ? 'Blog Featured Image' : 'Infographic Image'}
+                      </h2>
+                      <button
+                        onClick={handleBack}
+                        className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        ← Back
+                      </button>
+                    </div>
+                    <p className="text-gray-600 mt-2 text-sm sm:text-base">
+                      {selectedType === 'blog' 
+                        ? 'Provide your blog details to generate a stunning featured image'
+                        : 'Provide your content to create a visual infographic'
+                      }
+                    </p>
                   </div>
-                  <p className="text-gray-600 mt-2 text-sm sm:text-base">
-                    {selectedType === 'blog' 
-                      ? 'Provide your blog details to generate a stunning featured image'
-                      : 'Provide your content to create a visual infographic'
-                    }
-                  </p>
-                </div>
-                
-                <div className="flex-1 p-4 sm:p-8 overflow-y-auto">
-                  {selectedType === 'blog' && (
-                    <BlogImageForm
-                      onSubmit={handleFormSubmit}
-                      isLoading={isLoading}
-                    />
-                  )}
                   
-                  {selectedType === 'infographic' && (
-                    <InfographicForm
-                      onSubmit={handleFormSubmit}
-                      isLoading={isLoading}
-                    />
-                  )}
+                  <div className="flex-1 p-4 sm:p-8 overflow-y-auto">
+                    {selectedType === 'blog' && (
+                      <BlogImageForm
+                        onSubmit={handleFormSubmit}
+                        isLoading={isLoading}
+                        isBulkProcessing={isBulkProcessing}
+                      />
+                    )}
+                    
+                    {selectedType === 'infographic' && (
+                      <InfographicForm
+                        onSubmit={handleFormSubmit}
+                        isLoading={isLoading}
+                        isBulkProcessing={isBulkProcessing}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Right Side - Preview */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-              <ImagePreview
-                isLoading={isLoading}
-                generatedImage={generatedImage}
-                formData={formData}
-                imageType={selectedType}
-                onGenerateNew={handleGenerateNew}
-              />
+              {/* Right Side - Preview */}
+              <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
+                <ImagePreview
+                  isLoading={isLoading}
+                  generatedImage={generatedImage}
+                  formData={formData}
+                  imageType={selectedType}
+                  onGenerateNew={handleGenerateNew}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -395,6 +489,40 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Notification Banner */}
+      {activeBanner && (
+        <NotificationBanner
+          notification={notifications.find(n => n.id === activeBanner)!}
+          onClose={() => setActiveBanner(null)}
+        />
+      )}
+
+      {/* Notification Sidebar */}
+      <NotificationSidebar
+        isOpen={showNotificationSidebar}
+        onClose={() => setShowNotificationSidebar(false)}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        soundEnabled={soundEnabled}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        onClearAll={clearAllNotifications}
+        onToggleSound={toggleSound}
+        onRemoveNotification={removeNotification}
+      />
+
+      {/* Bulk Processing Status */}
+      <BulkProcessingStatus
+        isProcessing={isBulkProcessing}
+        processedCount={processedCount}
+        totalCount={totalCount}
+        estimatedTimeRemaining={getEstimatedTimeRemaining()}
+        onOpenBulkModal={() => {
+          // This will be handled by the bulk modal components
+          console.log('Open bulk modal');
+        }}
+      />
     </div>
   );
 }

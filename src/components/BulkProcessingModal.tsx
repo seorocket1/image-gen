@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, Download, AlertCircle, CheckCircle, Clock, Package, Plus, Trash2, Eye, Palette, Lightbulb, Brush, Sparkles, Zap, Image as ImageIcon, ZoomIn, ZoomOut, RotateCcw, ChevronDown } from 'lucide-react';
 import JSZip from 'jszip';
 import { sanitizeFormData, createSafeFilename } from '../utils/textSanitizer';
+import { useBulkProcessing } from '../hooks/useBulkProcessing';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface BulkItem {
   id: string;
@@ -66,10 +68,39 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   imageType,
 }) => {
   const [items, setItems] = useState<BulkItem[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [currentProcessing, setCurrentProcessing] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ base64: string; title: string; item: BulkItem } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+
+  const { 
+    isProcessing, 
+    currentProcessing, 
+    startBulkProcessing, 
+    updateProgress, 
+    completeBulkProcessing 
+  } = useBulkProcessing();
+  
+  const { addNotification } = useNotifications();
+
+  // Load items from localStorage when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const savedItems = localStorage.getItem(`bulk_items_${imageType}`);
+      if (savedItems) {
+        try {
+          setItems(JSON.parse(savedItems));
+        } catch (error) {
+          console.error('Error loading bulk items:', error);
+        }
+      }
+    }
+  }, [isOpen, imageType]);
+
+  // Save items to localStorage whenever they change
+  useEffect(() => {
+    if (items.length > 0) {
+      localStorage.setItem(`bulk_items_${imageType}`, JSON.stringify(items));
+    }
+  }, [items, imageType]);
 
   if (!isOpen) return null;
 
@@ -234,12 +265,17 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     });
 
     if (validItems.length === 0) {
-      alert('Please fill out at least one complete form before processing.');
+      addNotification({
+        type: 'warning',
+        title: 'No Valid Items',
+        message: 'Please fill out at least one complete form before processing.',
+      });
       return;
     }
 
-    setIsProcessing(true);
+    startBulkProcessing(validItems.length);
     const updatedItems = [...items];
+    let processedCount = 0;
 
     for (let i = 0; i < updatedItems.length; i++) {
       const item = updatedItems[i];
@@ -254,9 +290,9 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       
       if (item.status !== 'pending') continue;
 
-      setCurrentProcessing(item.id);
       updatedItems[i] = { ...updatedItems[i], status: 'processing' };
       setItems([...updatedItems]);
+      updateProgress(processedCount, item.id);
 
       // Add delay between requests to avoid overwhelming the server
       if (i > 0) {
@@ -266,17 +302,26 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       const processedItem = await processItem(updatedItems[i]);
       updatedItems[i] = processedItem;
       setItems([...updatedItems]);
+      
+      processedCount++;
+      updateProgress(processedCount);
     }
 
-    setCurrentProcessing(null);
-    setIsProcessing(false);
+    completeBulkProcessing();
+    
+    // Clear saved items after successful completion
+    localStorage.removeItem(`bulk_items_${imageType}`);
   };
 
   const downloadAllAsZip = async () => {
     const completedItems = items.filter(item => item.status === 'completed' && item.result);
     
     if (completedItems.length === 0) {
-      alert('No completed images to download');
+      addNotification({
+        type: 'warning',
+        title: 'No Images to Download',
+        message: 'No completed images available for download.',
+      });
       return;
     }
 
@@ -313,6 +358,13 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    addNotification({
+      type: 'success',
+      title: 'ZIP Downloaded',
+      message: `Successfully downloaded ${completedItems.length} images as ZIP file.`,
+      imageCount: completedItems.length,
+    });
   };
 
   const getStatusIcon = (status: BulkItem['status'], processingStep?: number) => {
@@ -777,7 +829,10 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setItems([])}
+                  onClick={() => {
+                    setItems([]);
+                    localStorage.removeItem(`bulk_items_${imageType}`);
+                  }}
                   disabled={isProcessing}
                   className="py-3 px-6 rounded-xl bg-gray-600 text-white font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >

@@ -6,6 +6,7 @@ import { BulkProcessingModal } from './BulkProcessingModal';
 interface InfographicFormProps {
   onSubmit: (data: { content: string; style?: string; colour?: string }) => void;
   isLoading: boolean;
+  isBulkProcessing?: boolean;
 }
 
 const STYLE_OPTIONS = [
@@ -38,7 +39,11 @@ const COLOUR_OPTIONS = [
   { value: 'custom', label: 'Custom (specify below)' },
 ];
 
-export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLoading }) => {
+export const InfographicForm: React.FC<InfographicFormProps> = ({ 
+  onSubmit, 
+  isLoading, 
+  isBulkProcessing = false 
+}) => {
   const [content, setContent] = useState('');
   const [style, setStyle] = useState('');
   const [customStyle, setCustomStyle] = useState('');
@@ -73,7 +78,8 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 resize-none min-h-[250px]"
+              disabled={isBulkProcessing}
+              className="w-full flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 resize-none min-h-[250px] disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter the content, data points, statistics, or blog section you want to visualize as an infographic..."
               required
             />
@@ -94,7 +100,8 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
                   id="style"
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer"
+                  disabled={isBulkProcessing}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {STYLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -109,7 +116,8 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
                   type="text"
                   value={customStyle}
                   onChange={(e) => setCustomStyle(e.target.value)}
-                  className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                  disabled={isBulkProcessing}
+                  className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Specify custom style..."
                 />
               )}
@@ -125,7 +133,8 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
                   id="colour"
                   value={colour}
                   onChange={(e) => setColour(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer"
+                  disabled={isBulkProcessing}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {COLOUR_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -140,7 +149,8 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
                   type="text"
                   value={customColour}
                   onChange={(e) => setCustomColour(e.target.value)}
-                  className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                  disabled={isBulkProcessing}
+                  className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Specify custom colour..."
                 />
               )}
@@ -151,13 +161,18 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
         <div className="space-y-3">
           <button
             type="submit"
-            disabled={!content.trim() || isLoading}
+            disabled={!content.trim() || isLoading || isBulkProcessing}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg"
           >
             {isLoading ? (
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                 Generating Infographic...
+              </div>
+            ) : isBulkProcessing ? (
+              <div className="flex items-center justify-center">
+                <Package className="w-5 h-5 mr-2" />
+                Bulk Processing Active
               </div>
             ) : (
               <div className="flex items-center justify-center">
@@ -175,7 +190,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({ onSubmit, isLo
           >
             <div className="flex items-center justify-center">
               <Package className="w-5 h-5 mr-2" />
-              Bulk Process Multiple Infographics
+              {isBulkProcessing ? 'View Bulk Processing' : 'Bulk Process Multiple Infographics'}
             </div>
           </button>
         </div>

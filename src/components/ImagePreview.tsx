@@ -9,6 +9,7 @@ interface ImagePreviewProps {
   formData: any;
   imageType: 'blog' | 'infographic' | null;
   onGenerateNew: () => void;
+  onOpenBulkModal?: () => void;
 }
 
 const LOADING_STEPS = [
@@ -26,11 +27,11 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   formData,
   imageType,
   onGenerateNew,
+  onOpenBulkModal,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [showBulkModal, setShowBulkModal] = useState(false);
 
   const { 
     isProcessing: isBulkProcessing, 
@@ -79,7 +80,6 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
     // Show bulk processing status if active
     if (isBulkProcessing) {
       const currentLoadingStep = LOADING_STEPS[currentStep];
-      const StepIcon = currentLoadingStep.icon;
       const estimatedTime = getEstimatedTimeRemaining();
 
       return (
@@ -141,13 +141,15 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               </div>
               
               {/* View Bulk Processing Button */}
-              <button
-                onClick={() => setShowBulkModal(true)}
-                className="mt-4 flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View Bulk Processing
-              </button>
+              {onOpenBulkModal && (
+                <button
+                  onClick={onOpenBulkModal}
+                  className="mt-4 flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Bulk Processing
+                </button>
+              )}
             </div>
           </div>
         </div>

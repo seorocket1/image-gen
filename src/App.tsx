@@ -11,6 +11,7 @@ import { NotificationSidebar } from './components/NotificationSidebar';
 import { ImageTypeSwitch } from './components/ImageTypeSwitch';
 import { BulkProcessingStatus } from './components/BulkProcessingStatus';
 import { BulkProcessingModal } from './components/BulkProcessingModal';
+import { CreditDisplay } from './components/CreditDisplay';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useBulkProcessing } from './hooks/useBulkProcessing';
@@ -26,8 +27,14 @@ interface GeneratedImage {
 
 const WEBHOOK_URL = 'https://n8n.seoengine.agency/webhook/6e9e3b30-cb55-4d74-aa9d-68691983455f';
 
+// Credit costs
+const CREDIT_COSTS = {
+  blog: 5,
+  infographic: 10,
+};
+
 function App() {
-  const { user, isAuthenticated, isLoading: authLoading, signInWithEmail, signInAnonymously, signOut } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, signInWithEmail, signInAnonymously, signOut, deductCredits } = useAuth();
   const { 
     notifications, 
     unreadCount, 
@@ -68,6 +75,16 @@ function App() {
     }
   };
 
+  // Auto-dismiss banner after 3 seconds
+  useEffect(() => {
+    if (activeBanner) {
+      const timer = setTimeout(() => {
+        setActiveBanner(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeBanner]);
+
   // Listen for bulk processing completion
   useEffect(() => {
     if (isBulkProcessing && processedCount === totalCount && totalCount > 0) {
@@ -101,11 +118,31 @@ function App() {
   };
 
   const handleFormSubmit = async (data: any) => {
+    if (!user) return;
+
+    const creditCost = CREDIT_COSTS[selectedType as keyof typeof CREDIT_COSTS];
+    
+    // Check if user has enough credits
+    if (user.credits < creditCost) {
+      addNotification({
+        type: 'error',
+        title: 'Insufficient Credits',
+        message: `You need ${creditCost} credits to generate a ${selectedType} image. You have ${user.credits} credits remaining.`,
+      });
+      return;
+    }
+
     setIsLoading(true);
     setFormData(data);
     setError(null);
     
     try {
+      // Deduct credits first
+      const creditsDeducted = await deductCredits(creditCost, selectedType as 'blog' | 'infographic');
+      if (!creditsDeducted) {
+        throw new Error('Failed to deduct credits. Please try again.');
+      }
+
       // Sanitize the data before sending
       const sanitizedData = sanitizeFormData(data);
       
@@ -159,7 +196,7 @@ function App() {
         const notificationId = addNotification({
           type: 'success',
           title: 'Image Generated Successfully!',
-          message: `Your ${selectedType === 'blog' ? 'blog featured image' : 'infographic'} is ready for download.`,
+          message: `Your ${selectedType === 'blog' ? 'blog featured image' : 'infographic'} is ready for download. ${creditCost} credits used.`,
           imageType: selectedType as 'blog' | 'infographic',
           imageCount: 1,
           duration: 5000,
@@ -308,18 +345,20 @@ function App() {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Blog Featured Images</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-3">
                 Generate eye-catching featured images for your blog posts with custom titles and engaging visuals.
               </p>
+              <div className="text-sm text-blue-600 font-semibold">5 credits per image</div>
             </div>
             <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-gray-200/50">
               <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 mb-4">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Infographic Images</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-3">
                 Transform your data and content into visually appealing infographics that tell your story.
               </p>
+              <div className="text-sm text-purple-600 font-semibold">10 credits per image</div>
             </div>
           </div>
         </section>
@@ -355,6 +394,14 @@ function App() {
                 Powered by <span className="font-semibold text-blue-600 ml-1">SEO Engine</span>
               </div>
               <div className="flex items-center space-x-3">
+                {/* Credits Display */}
+                {user && (
+                  <CreditDisplay 
+                    credits={user.credits} 
+                    isAnonymous={user.isAnonymous}
+                  />
+                )}
+
                 {/* Notification Button */}
                 <button
                   onClick={() => setShowNotificationSidebar(true)}
@@ -371,7 +418,7 @@ function App() {
                 
                 <div className="flex items-center text-sm text-gray-600">
                   <User className="w-4 h-4 mr-2" />
-                  {user?.isAnonymous ? 'Anonymous' : user?.email || 'User'}
+                  {user?.isAnonymous ? 'Anonymous' : user?.email || `${user?.firstName} ${user?.lastName}`}
                 </div>
                 <button
                   onClick={signOut}
@@ -446,6 +493,16 @@ function App() {
                         : 'Provide your content to create a visual infographic'
                       }
                     </p>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="text-sm text-blue-600 font-semibold">
+                        Cost: {CREDIT_COSTS[selectedType as keyof typeof CREDIT_COSTS]} credits
+                      </div>
+                      {user && user.credits < CREDIT_COSTS[selectedType as keyof typeof CREDIT_COSTS] && (
+                        <div className="text-sm text-red-600 font-medium">
+                          Insufficient credits
+                        </div>
+                      )}
+                    </div>
                     {isBulkProcessing && (
                       <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-sm text-blue-700 font-medium">
@@ -483,6 +540,7 @@ function App() {
                   formData={formData}
                   imageType={selectedType}
                   onGenerateNew={handleGenerateNew}
+                  onOpenBulkModal={() => setShowBulkModal(true)}
                 />
               </div>
             </div>
@@ -501,7 +559,6 @@ function App() {
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 SEO Engine
               </span>
-            
             </div>
             <p className="text-gray-600 mb-2">
               Empowering content creators with AI-driven visual solutions

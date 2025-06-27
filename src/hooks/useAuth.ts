@@ -17,7 +17,7 @@ export const useAuth = () => {
       try {
         console.log('Starting auth initialization...');
         
-        // Set a maximum timeout for the entire auth process - increased from 60000ms to 120000ms
+        // Set a maximum timeout for the entire auth process - increased from 120000ms to 240000ms
         timeoutId = setTimeout(() => {
           if (mounted) {
             console.log('Auth initialization timeout, proceeding without authentication');
@@ -27,13 +27,13 @@ export const useAuth = () => {
               isAuthenticated: false,
             });
           }
-        }, 120000); // Increased timeout to 120 seconds
+        }, 240000); // Increased timeout to 240 seconds
 
         // Get initial session with increased timeout
         console.log('Getting session...');
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 60000) // Increased from 30000ms to 60000ms
+          setTimeout(() => reject(new Error('Session timeout')), 120000) // Increased from 60000ms to 120000ms
         );
 
         const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
@@ -114,7 +114,7 @@ export const useAuth = () => {
         .single();
         
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 60000) // Increased from 30000ms to 60000ms
+        setTimeout(() => reject(new Error('Profile load timeout')), 120000) // Increased from 60000ms to 120000ms
       );
 
       const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
@@ -251,7 +251,7 @@ export const useAuth = () => {
       });
       
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign in timeout')), 60000) // Increased from 30000ms to 60000ms
+        setTimeout(() => reject(new Error('Sign in timeout')), 120000) // Increased from 60000ms to 120000ms
       );
 
       const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;

@@ -160,7 +160,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   const testConnection = async () => {
     try {
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Connection timeout')), 60000) // Increased from 30000ms to 60000ms
+        setTimeout(() => reject(new Error('Connection timeout')), 120000) // Increased from 60000ms to 120000ms
       );
       
       const testPromise = supabase.from('profiles').select('count', { count: 'exact', head: true });

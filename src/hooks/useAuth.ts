@@ -16,10 +16,10 @@ export const useAuth = () => {
       try {
         console.log('Initializing auth...');
         
-        // Get initial session with timeout
+        // Get initial session with increased timeout
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 30000)
+          setTimeout(() => reject(new Error('Session timeout')), 60000)
         );
 
         const { data: { session }, error } = await Promise.race([
@@ -84,7 +84,7 @@ export const useAuth = () => {
     try {
       console.log('Loading profile for user:', userId);
       
-      // Add timeout for profile loading
+      // Add increased timeout for profile loading
       const profilePromise = supabase
         .from('profiles')
         .select('*')
@@ -92,7 +92,7 @@ export const useAuth = () => {
         .single();
         
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 30000)
+        setTimeout(() => reject(new Error('Profile load timeout')), 60000)
       );
 
       const { data: profile, error } = await Promise.race([

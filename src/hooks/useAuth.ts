@@ -17,7 +17,7 @@ export const useAuth = () => {
       try {
         console.log('Starting auth initialization...');
         
-        // Set a maximum timeout for the entire auth process
+        // Set a maximum timeout for the entire auth process - increased from 10000ms to 20000ms
         timeoutId = setTimeout(() => {
           if (mounted) {
             console.log('Auth initialization timeout, proceeding without authentication');
@@ -27,13 +27,13 @@ export const useAuth = () => {
               isAuthenticated: false,
             });
           }
-        }, 20000); // 20 second timeout
+        }, 20000); // Increased timeout to 20 seconds
 
-        // Get initial session with timeout
+        // Get initial session with increased timeout
         console.log('Getting session...');
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 15000)
+          setTimeout(() => reject(new Error('Session timeout')), 15000) // Increased from 8000ms to 15000ms
         );
 
         const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
@@ -106,7 +106,7 @@ export const useAuth = () => {
     try {
       console.log('Loading profile for user:', userId);
       
-      // Add timeout to profile loading
+      // Add increased timeout to profile loading
       const profilePromise = supabase
         .from('profiles')
         .select('*')
@@ -114,7 +114,7 @@ export const useAuth = () => {
         .single();
         
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 15000)
+        setTimeout(() => reject(new Error('Profile load timeout')), 15000) // Increased from 8000ms to 15000ms
       );
 
       const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
@@ -244,14 +244,14 @@ export const useAuth = () => {
     try {
       console.log('Signing in user...');
       
-      // Add timeout to sign in
+      // Add increased timeout to sign in
       const signInPromise = supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign in timeout')), 15000)
+        setTimeout(() => reject(new Error('Sign in timeout')), 15000) // Increased from 10000ms to 15000ms
       );
 
       const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;

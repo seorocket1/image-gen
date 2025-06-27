@@ -10,24 +10,61 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      } else {
-        setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        console.log('Initializing auth...');
+        
+        // Get initial session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          if (mounted) {
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+            });
+          }
+          return;
+        }
+
+        console.log('Session:', session);
+
+        if (session?.user) {
+          await loadUserProfile(session.user.id);
+        } else {
+          if (mounted) {
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+        }
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
+      console.log('Auth state changed:', event, session);
+      
+      if (session?.user && mounted) {
         await loadUserProfile(session.user.id);
-      } else {
+      } else if (mounted) {
         setAuthState({
           user: null,
           isLoading: false,
@@ -36,18 +73,28 @@ export const useAuth = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadUserProfile = async (userId: string) => {
     try {
+      console.log('Loading user profile for:', userId);
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile error:', error);
+        throw error;
+      }
+
+      console.log('Profile loaded:', profile);
 
       const { data: authUser } = await supabase.auth.getUser();
 
@@ -81,6 +128,8 @@ export const useAuth = () => {
 
   const signUp = async (signUpData: SignUpData): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('Signing up user:', signUpData.email);
+      
       const { data, error } = await supabase.auth.signUp({
         email: signUpData.email,
         password: signUpData.password,
@@ -96,6 +145,7 @@ export const useAuth = () => {
 
       if (error) throw error;
 
+      console.log('Sign up successful:', data);
       return { success: true };
     } catch (error: any) {
       console.error('Sign up error:', error);
@@ -105,6 +155,8 @@ export const useAuth = () => {
 
   const signInWithEmail = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('Signing in user:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -112,6 +164,7 @@ export const useAuth = () => {
 
       if (error) throw error;
 
+      console.log('Sign in successful:', data);
       return true;
     } catch (error) {
       console.error('Sign in error:', error);
@@ -120,6 +173,7 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    console.log('Signing out user');
     await supabase.auth.signOut();
     setAuthState({
       user: null,
@@ -130,10 +184,13 @@ export const useAuth = () => {
 
   const deductCredits = async (amount: number, imageType: 'blog' | 'infographic'): Promise<boolean> => {
     if (!authState.user) {
+      console.error('No user found for credit deduction');
       return false;
     }
 
     try {
+      console.log('Deducting credits:', amount, 'for', imageType);
+      
       const { data, error } = await supabase.rpc('deduct_credits', {
         p_user_id: authState.user.id,
         p_amount: amount,

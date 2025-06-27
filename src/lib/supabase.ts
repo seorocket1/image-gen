@@ -156,22 +156,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
     }
   });
 
-  // Test connection with increased timeout
+  // Test connection without aggressive timeout
   const testConnection = async () => {
     try {
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Connection timeout')), 120000) // Increased from 60000ms to 120000ms
-      );
-      
-      const testPromise = supabase.from('profiles').select('count', { count: 'exact', head: true });
-      
-      await Promise.race([testPromise, timeoutPromise]);
+      await supabase.from('profiles').select('count', { count: 'exact', head: true });
       console.log('Supabase connection test successful');
     } catch (error) {
-      console.error('Supabase connection test failed:', error);
+      console.warn('Supabase connection test failed, but continuing with graceful degradation:', error);
     }
   };
 
+  // Run test connection but don't block initialization
   testConnection();
 }
 

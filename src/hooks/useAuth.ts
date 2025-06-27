@@ -11,36 +11,26 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
-    let timeoutId: NodeJS.Timeout;
 
     const initializeAuth = async () => {
       try {
         console.log('Starting auth initialization...');
         
-        // Set a maximum timeout for the entire auth process - increased from 120000ms to 240000ms
-        timeoutId = setTimeout(() => {
+        // Get initial session without aggressive timeout
+        console.log('Getting session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('Session error:', error);
+          // Don't throw, just continue with unauthenticated state
           if (mounted) {
-            console.log('Auth initialization timeout, proceeding without authentication');
             setAuthState({
               user: null,
               isLoading: false,
               isAuthenticated: false,
             });
           }
-        }, 240000); // Increased timeout to 240 seconds
-
-        // Get initial session with increased timeout
-        console.log('Getting session...');
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 120000) // Increased from 60000ms to 120000ms
-        );
-
-        const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-
-        if (error) {
-          console.error('Session error:', error);
-          throw error;
+          return;
         }
 
         console.log('Session retrieved:', !!session);
@@ -56,11 +46,6 @@ export const useAuth = () => {
             isAuthenticated: false,
           });
         }
-
-        // Clear timeout if we get here successfully
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
       } catch (error) {
         console.error('Auth initialization error:', error);
         if (mounted) {
@@ -69,9 +54,6 @@ export const useAuth = () => {
             isLoading: false,
             isAuthenticated: false,
           });
-        }
-        if (timeoutId) {
-          clearTimeout(timeoutId);
         }
       }
     };
@@ -95,9 +77,6 @@ export const useAuth = () => {
 
     return () => {
       mounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
       subscription.unsubscribe();
     };
   }, []);
@@ -106,18 +85,12 @@ export const useAuth = () => {
     try {
       console.log('Loading profile for user:', userId);
       
-      // Add increased timeout to profile loading
-      const profilePromise = supabase
+      // Remove aggressive timeout and let Supabase handle its own timeouts
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
-        
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 120000) // Increased from 60000ms to 120000ms
-      );
-
-      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Profile load error:', error);
@@ -244,17 +217,11 @@ export const useAuth = () => {
     try {
       console.log('Signing in user...');
       
-      // Add increased timeout to sign in
-      const signInPromise = supabase.auth.signInWithPassword({
+      // Remove aggressive timeout and let Supabase handle its own timeouts
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign in timeout')), 120000) // Increased from 60000ms to 120000ms
-      );
-
-      const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;
 
       if (error) throw error;
 

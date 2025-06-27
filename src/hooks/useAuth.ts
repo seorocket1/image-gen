@@ -27,13 +27,13 @@ export const useAuth = () => {
               isAuthenticated: false,
             });
           }
-        }, 10000); // 10 second timeout
+        }, 20000); // 20 second timeout
 
         // Get initial session with timeout
         console.log('Getting session...');
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 8000)
+          setTimeout(() => reject(new Error('Session timeout')), 15000)
         );
 
         const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
@@ -114,7 +114,7 @@ export const useAuth = () => {
         .single();
         
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 8000)
+        setTimeout(() => reject(new Error('Profile load timeout')), 15000)
       );
 
       const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
@@ -251,7 +251,7 @@ export const useAuth = () => {
       });
       
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign in timeout')), 10000)
+        setTimeout(() => reject(new Error('Sign in timeout')), 15000)
       );
 
       const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;

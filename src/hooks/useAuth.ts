@@ -11,21 +11,27 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout;
 
     const initializeAuth = async () => {
       try {
-        console.log('Initializing auth...');
+        console.log('Starting auth initialization...');
         
-        // Get initial session with increased timeout
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 60000)
-        );
+        // Set a maximum timeout for the entire auth process
+        timeoutId = setTimeout(() => {
+          if (mounted) {
+            console.log('Auth initialization timeout, proceeding without authentication');
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+            });
+          }
+        }, 10000); // 10 second timeout
 
-        const { data: { session }, error } = await Promise.race([
-          sessionPromise,
-          timeoutPromise
-        ]) as any;
+        // Get initial session
+        console.log('Getting session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
           console.error('Session error:', error);
@@ -45,6 +51,11 @@ export const useAuth = () => {
             isAuthenticated: false,
           });
         }
+
+        // Clear timeout if we get here successfully
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       } catch (error) {
         console.error('Auth initialization error:', error);
         if (mounted) {
@@ -53,6 +64,9 @@ export const useAuth = () => {
             isLoading: false,
             isAuthenticated: false,
           });
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
         }
       }
     };
@@ -76,6 +90,9 @@ export const useAuth = () => {
 
     return () => {
       mounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       subscription.unsubscribe();
     };
   }, []);
@@ -84,28 +101,18 @@ export const useAuth = () => {
     try {
       console.log('Loading profile for user:', userId);
       
-      // Add increased timeout for profile loading
-      const profilePromise = supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
-        
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 60000)
-      );
-
-      const { data: profile, error } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]) as any;
 
       if (error) {
         console.error('Profile load error:', error);
         
-        // If profile doesn't exist, create a basic one
+        // If profile doesn't exist, create a basic user state
         if (error.code === 'PGRST116') {
-          console.log('Profile not found, creating basic profile...');
+          console.log('Profile not found, creating basic user state...');
           const { data: authUser } = await supabase.auth.getUser();
           
           const user: User = {
@@ -158,28 +165,37 @@ export const useAuth = () => {
       console.error('Error loading user profile:', error);
       
       // Fallback: create a basic authenticated state
-      const { data: authUser } = await supabase.auth.getUser();
-      
-      if (authUser.user) {
-        const user: User = {
-          id: userId,
-          email: authUser.user.email,
-          firstName: 'User',
-          lastName: 'Name',
-          websiteUrl: undefined,
-          brandName: undefined,
-          credits: 50,
-          isAnonymous: false,
-          isAdmin: false,
-          createdAt: new Date(),
-        };
+      try {
+        const { data: authUser } = await supabase.auth.getUser();
+        
+        if (authUser.user) {
+          const user: User = {
+            id: userId,
+            email: authUser.user.email,
+            firstName: 'User',
+            lastName: 'Name',
+            websiteUrl: undefined,
+            brandName: undefined,
+            credits: 50,
+            isAnonymous: false,
+            isAdmin: false,
+            createdAt: new Date(),
+          };
 
-        setAuthState({
-          user,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      } else {
+          setAuthState({
+            user,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+        } else {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Fallback auth error:', fallbackError);
         setAuthState({
           user: null,
           isLoading: false,

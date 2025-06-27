@@ -289,6 +289,9 @@ function App() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">SEO Engine</h2>
           <p className="text-gray-600">Loading...</p>
+          <div className="mt-4 text-sm text-gray-500">
+            Connecting to services...
+          </div>
         </div>
       </div>
     );

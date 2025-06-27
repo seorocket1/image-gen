@@ -27,7 +27,7 @@ export const useAuth = () => {
               isAuthenticated: false,
             });
           }
-        }, 10000); // 10 second timeout
+        }, 8000); // 8 second timeout
 
         // Get initial session
         console.log('Getting session...');
@@ -270,7 +270,7 @@ export const useAuth = () => {
     try {
       console.log('Deducting credits:', { amount, imageType, userId: authState.user.id });
       
-      // Simple credit deduction without RPC function
+      // Get current credits first
       const { data: currentProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('credits')
@@ -314,8 +314,15 @@ export const useAuth = () => {
         // Don't fail the whole operation for logging errors
       }
 
-      // Reload user profile to get updated credits
-      await loadUserProfile(authState.user.id);
+      // Update local state immediately
+      setAuthState(prev => ({
+        ...prev,
+        user: prev.user ? {
+          ...prev.user,
+          credits: prev.user.credits - amount
+        } : null
+      }));
+
       console.log('Credits deducted successfully');
       return true;
     } catch (error) {

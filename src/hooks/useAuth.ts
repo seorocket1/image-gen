@@ -33,16 +33,14 @@ export const useAuth = () => {
 
         console.log('Session:', session);
 
-        if (session?.user) {
+        if (session?.user && mounted) {
           await loadUserProfile(session.user.id);
-        } else {
-          if (mounted) {
-            setAuthState({
-              user: null,
-              isLoading: false,
-              isAuthenticated: false,
-            });
-          }
+        } else if (mounted) {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -83,6 +81,7 @@ export const useAuth = () => {
     try {
       console.log('Loading user profile for:', userId);
       
+      // First, try to get the profile
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -91,6 +90,50 @@ export const useAuth = () => {
 
       if (error) {
         console.error('Profile error:', error);
+        
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found, creating...');
+          const { data: authUser } = await supabase.auth.getUser();
+          
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              first_name: 'User',
+              last_name: 'Name',
+              credits: 50,
+              is_admin: false
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Failed to create profile:', createError);
+            throw createError;
+          }
+
+          const user: User = {
+            id: newProfile.id,
+            email: authUser.user?.email,
+            firstName: newProfile.first_name,
+            lastName: newProfile.last_name,
+            websiteUrl: newProfile.website_url,
+            brandName: newProfile.brand_name,
+            credits: newProfile.credits,
+            isAnonymous: false,
+            isAdmin: newProfile.is_admin || false,
+            createdAt: new Date(newProfile.created_at),
+          };
+
+          setAuthState({
+            user,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+          return;
+        }
+        
         throw error;
       }
 

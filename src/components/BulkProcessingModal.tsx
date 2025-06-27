@@ -216,6 +216,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
 
   const processItem = async (item: BulkItem): Promise<BulkItem> => {
     try {
+      console.log('Processing item:', item.id);
+      
       // Simulate processing steps with delays and animations
       for (let i = 0; i < PROCESSING_STEPS.length; i++) {
         setItems(prevItems => 
@@ -256,6 +258,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         image_detail: imageDetail,
       };
 
+      console.log('Sending to webhook:', payload);
+
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: {
@@ -269,6 +273,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       }
 
       const result = await response.json();
+      console.log('Webhook response received for item:', item.id);
 
       if (result.image) {
         return {
@@ -281,6 +286,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         throw new Error('No image data received from the server');
       }
     } catch (error) {
+      console.error('Error processing item:', item.id, error);
       return {
         ...item,
         status: 'error',
@@ -327,7 +333,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     }
 
     try {
-      // Deduct credits upfront for all items - THIS IS THE KEY FIX
+      // Deduct credits upfront for all items
       console.log('Deducting credits for bulk processing:', totalCreditsNeeded);
       const creditsDeducted = await deductCredits(totalCreditsNeeded, imageType);
       if (!creditsDeducted) {
@@ -367,6 +373,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         
         if (item.status !== 'pending') continue;
 
+        console.log(`Processing item ${i + 1}:`, item.id);
+
         updatedItems[i] = { ...updatedItems[i], status: 'processing' };
         setItems([...updatedItems]);
         updateProgress(processedCount, item.id);
@@ -382,6 +390,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         
         processedCount++;
         updateProgress(processedCount, null, item.id, processedItem.status === 'completed');
+        
+        console.log(`Completed item ${i + 1}, total processed: ${processedCount}`);
       }
 
       // Complete bulk processing
@@ -408,6 +418,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         title: 'Bulk Processing Failed',
         message: 'An error occurred during bulk processing. Please try again.',
       });
+      forceStopProcessing();
     }
   };
 
@@ -1000,7 +1011,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         </div>
       </div>
 
-      {/* Enhanced Image Preview Modal with Zoom - FIXED Z-INDEX */}
+      {/* Enhanced Image Preview Modal with Zoom */}
       {previewImage && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">

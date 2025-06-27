@@ -77,7 +77,6 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   const [items, setItems] = useState<BulkItem[]>([]);
   const [previewImage, setPreviewImage] = useState<{ base64: string; title: string; item: BulkItem } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [isProcessingLocal, setIsProcessingLocal] = useState(false);
 
   const { 
     isProcessing, 
@@ -292,7 +291,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   };
 
   const processBulkItems = async () => {
-    if (isProcessing || isProcessingLocal) {
+    if (isProcessing) {
       console.log('Already processing, skipping...');
       return;
     }
@@ -327,10 +326,9 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       return;
     }
 
-    setIsProcessingLocal(true);
-
     try {
-      // Deduct credits upfront for all items
+      // Deduct credits upfront for all items - THIS IS THE KEY FIX
+      console.log('Deducting credits for bulk processing:', totalCreditsNeeded);
       const creditsDeducted = await deductCredits(totalCreditsNeeded, imageType);
       if (!creditsDeducted) {
         addNotification({
@@ -349,7 +347,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       addNotification({
         type: 'info',
         title: 'Bulk Processing Started',
-        message: `Processing ${validItems.length} ${imageType} images. You can close this modal and continue working.`,
+        message: `Processing ${validItems.length} ${imageType} images. Credits deducted: ${totalCreditsNeeded}. You can close this modal and continue working.`,
         isBulkProcessing: true,
         bulkProcessingId: bulkId,
         imageType,
@@ -410,8 +408,6 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         title: 'Bulk Processing Failed',
         message: 'An error occurred during bulk processing. Please try again.',
       });
-    } finally {
-      setIsProcessingLocal(false);
     }
   };
 
@@ -516,7 +512,6 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   const handleStopProcessing = () => {
     if (confirm('Are you sure you want to stop the bulk processing? This will cancel all remaining items.')) {
       forceStopProcessing();
-      setIsProcessingLocal(false);
       addNotification({
         type: 'warning',
         title: 'Bulk Processing Stopped',
@@ -526,10 +521,9 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   };
 
   const handleClearAll = () => {
-    if (isProcessing || isProcessingLocal) {
+    if (isProcessing) {
       if (confirm('Bulk processing is active. Are you sure you want to clear all items? This will stop the processing.')) {
         forceStopProcessing();
-        setIsProcessingLocal(false);
         setItems([]);
         localStorage.removeItem(`bulk_items_${imageType}`);
         resetBulkProcessing();
@@ -555,7 +549,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   const totalCreditsNeeded = validItemsCount * creditCost;
 
   // Determine if processing is disabled
-  const isProcessingDisabled = isProcessing || isProcessingLocal || validItemsCount === 0 || (user && user.credits < totalCreditsNeeded);
+  const isProcessingDisabled = isProcessing || validItemsCount === 0 || (user && user.credits < totalCreditsNeeded);
 
   return (
     <>
@@ -589,7 +583,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                   <div className="text-sm text-gray-600">
                     {completedCount}/{validItemsCount} completed
                   </div>
-                  {(isProcessing || isProcessingLocal) && (
+                  {isProcessing && (
                     <button
                       onClick={handleStopProcessing}
                       className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors"
@@ -620,7 +614,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                   )}
                 </div>
               )}
-              {(isProcessing || isProcessingLocal) && (
+              {isProcessing && (
                 <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-700 font-medium">
                     Bulk processing is active. Single image generation is disabled.
@@ -703,7 +697,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                           )}
                           <button
                             onClick={() => removeItem(item.id)}
-                            disabled={isProcessing || isProcessingLocal}
+                            disabled={isProcessing}
                             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -722,7 +716,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                               type="text"
                               value={item.data.title || ''}
                               onChange={(e) => updateItemData(item.id, { ...item.data, title: e.target.value })}
-                              disabled={isProcessing || isProcessingLocal}
+                              disabled={isProcessing}
                               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                               placeholder="Enter blog title..."
                             />
@@ -734,7 +728,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                             <textarea
                               value={item.data.intro || ''}
                               onChange={(e) => updateItemData(item.id, { ...item.data, intro: e.target.value })}
-                              disabled={isProcessing || isProcessingLocal}
+                              disabled={isProcessing}
                               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 resize-none h-24 disabled:opacity-50"
                               placeholder="Enter blog content, summary, or keywords..."
                             />
@@ -750,7 +744,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.style || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, style: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {STYLE_OPTIONS.map((option) => (
@@ -766,7 +760,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customStyle || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customStyle: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom style..."
                                 />
@@ -781,7 +775,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.colour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, colour: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {COLOUR_OPTIONS.map((option) => (
@@ -797,7 +791,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customColour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customColour: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom colour..."
                                 />
@@ -814,7 +808,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                             <textarea
                               value={item.data.content || ''}
                               onChange={(e) => updateItemData(item.id, { ...item.data, content: e.target.value })}
-                              disabled={isProcessing || isProcessingLocal}
+                              disabled={isProcessing}
                               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 resize-none h-32 disabled:opacity-50"
                               placeholder="Enter content, data points, or statistics to visualize..."
                             />
@@ -830,7 +824,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.style || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, style: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {STYLE_OPTIONS.map((option) => (
@@ -846,7 +840,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customStyle || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customStyle: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom style..."
                                 />
@@ -861,7 +855,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.colour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, colour: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {COLOUR_OPTIONS.map((option) => (
@@ -877,7 +871,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customColour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customColour: e.target.value })}
-                                  disabled={isProcessing || isProcessingLocal}
+                                  disabled={isProcessing}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom colour..."
                                 />
@@ -927,7 +921,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
               {/* Add More Item Button */}
               <button
                 onClick={addNewItem}
-                disabled={isProcessing || isProcessingLocal}
+                disabled={isProcessing}
                 className="w-full py-4 px-6 rounded-xl border-2 border-dashed border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >
                 <div className="flex items-center justify-center">
@@ -969,7 +963,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                   disabled={isProcessingDisabled}
                   className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
-                  {isProcessing || isProcessingLocal ? (
+                  {isProcessing ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                       Processing... ({completedCount}/{validItemsCount})

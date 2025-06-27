@@ -37,7 +37,8 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
     isProcessing: isBulkProcessing, 
     processedCount, 
     totalCount,
-    getEstimatedTimeRemaining 
+    getEstimatedTimeRemaining,
+    currentProcessing
   } = useBulkProcessing();
 
   // Cycle through loading steps every 10 seconds
@@ -77,7 +78,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   };
 
   const renderPreviewContent = () => {
-    // Show bulk processing status if active
+    // Show bulk processing status if active - THIS IS THE KEY FIX
     if (isBulkProcessing) {
       const currentLoadingStep = LOADING_STEPS[currentStep];
       const estimatedTime = getEstimatedTimeRemaining();
@@ -156,6 +157,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
       );
     }
 
+    // Show single image loading if active
     if (isLoading) {
       const currentLoadingStep = LOADING_STEPS[currentStep];
       const StepIcon = currentLoadingStep.icon;

@@ -20,16 +20,16 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
     // Animate in
     const timer = setTimeout(() => setIsVisible(true), 100);
     
-    // Auto-dismiss after duration (default 3 seconds)
+    // Auto-dismiss after duration (default 5 seconds for bulk processing)
     const dismissTimer = setTimeout(() => {
       handleClose();
-    }, notification.duration || 3000);
+    }, notification.duration || (notification.isBulkProcessing ? 5000 : 3000));
     
     return () => {
       clearTimeout(timer);
       clearTimeout(dismissTimer);
     };
-  }, [notification.duration]);
+  }, [notification.duration, notification.isBulkProcessing]);
 
   const handleClose = () => {
     setIsLeaving(true);

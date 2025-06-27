@@ -21,21 +21,19 @@ export const useBulkProcessing = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // If processing is complete, don't restore the state
+        // If processing is complete or stale, don't restore the state
         if (parsed.processedCount >= parsed.totalCount && parsed.totalCount > 0) {
           localStorage.removeItem(STORAGE_KEY);
-          return {
-            isProcessing: false,
-            currentProcessing: null,
-            processedCount: 0,
-            totalCount: 0,
-            startTime: null,
-            bulkProcessingId: null,
-            imageType: null,
-            completedItems: [],
-            failedItems: [],
-          };
+          return getInitialState();
         }
+        
+        // Check if the process is stale (older than 1 hour)
+        const startTime = parsed.startTime ? new Date(parsed.startTime) : null;
+        if (startTime && Date.now() - startTime.getTime() > 3600000) { // 1 hour
+          localStorage.removeItem(STORAGE_KEY);
+          return getInitialState();
+        }
+        
         return {
           ...parsed,
           startTime: parsed.startTime ? new Date(parsed.startTime) : null,
@@ -46,6 +44,10 @@ export const useBulkProcessing = () => {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
+    return getInitialState();
+  });
+
+  function getInitialState(): BulkProcessingState {
     return {
       isProcessing: false,
       currentProcessing: null,
@@ -57,7 +59,7 @@ export const useBulkProcessing = () => {
       completedItems: [],
       failedItems: [],
     };
-  });
+  }
 
   const saveState = useCallback((newState: BulkProcessingState) => {
     // Don't save if processing is complete
@@ -135,17 +137,7 @@ export const useBulkProcessing = () => {
       // Clear storage after a delay to allow UI to show completion
       setTimeout(() => {
         localStorage.removeItem(STORAGE_KEY);
-        setState({
-          isProcessing: false,
-          currentProcessing: null,
-          processedCount: 0,
-          totalCount: 0,
-          startTime: null,
-          bulkProcessingId: null,
-          imageType: null,
-          completedItems: [],
-          failedItems: [],
-        });
+        setState(getInitialState());
       }, 5000); // Clear after 5 seconds
       
       return newState;
@@ -163,20 +155,22 @@ export const useBulkProcessing = () => {
   }, [state]);
 
   const resetBulkProcessing = useCallback(() => {
-    const newState: BulkProcessingState = {
-      isProcessing: false,
-      currentProcessing: null,
-      processedCount: 0,
-      totalCount: 0,
-      startTime: null,
-      bulkProcessingId: null,
-      imageType: null,
-      completedItems: [],
-      failedItems: [],
-    };
+    const newState = getInitialState();
     setState(newState);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
+
+  const forceStopProcessing = useCallback(() => {
+    setState(prev => {
+      const newState = {
+        ...prev,
+        isProcessing: false,
+        currentProcessing: null,
+      };
+      saveState(newState);
+      return newState;
+    });
+  }, [saveState]);
 
   return {
     ...state,
@@ -184,6 +178,7 @@ export const useBulkProcessing = () => {
     updateProgress,
     completeBulkProcessing,
     resetBulkProcessing,
+    forceStopProcessing,
     getEstimatedTimeRemaining,
   };
 };

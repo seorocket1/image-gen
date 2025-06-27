@@ -87,6 +87,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     startBulkProcessing, 
     updateProgress, 
     completeBulkProcessing,
+    resetBulkProcessing,
+    forceStopProcessing,
     bulkProcessingId,
     completedItems,
     failedItems
@@ -511,6 +513,34 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     setZoomLevel(1); // Reset zoom when opening preview
   };
 
+  const handleStopProcessing = () => {
+    if (confirm('Are you sure you want to stop the bulk processing? This will cancel all remaining items.')) {
+      forceStopProcessing();
+      setIsProcessingLocal(false);
+      addNotification({
+        type: 'warning',
+        title: 'Bulk Processing Stopped',
+        message: 'Bulk processing has been stopped. Completed images are still available.',
+      });
+    }
+  };
+
+  const handleClearAll = () => {
+    if (isProcessing || isProcessingLocal) {
+      if (confirm('Bulk processing is active. Are you sure you want to clear all items? This will stop the processing.')) {
+        forceStopProcessing();
+        setIsProcessingLocal(false);
+        setItems([]);
+        localStorage.removeItem(`bulk_items_${imageType}`);
+        resetBulkProcessing();
+      }
+    } else {
+      setItems([]);
+      localStorage.removeItem(`bulk_items_${imageType}`);
+      resetBulkProcessing();
+    }
+  };
+
   const completedCount = items.filter(item => item.status === 'completed').length;
   const errorCount = items.filter(item => item.status === 'error').length;
   const validItemsCount = items.filter(item => {
@@ -555,8 +585,18 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
             <div className="bg-gray-50 p-4 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-900">Processing Status</h3>
-                <div className="text-sm text-gray-600">
-                  {completedCount}/{validItemsCount} completed
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-600">
+                    {completedCount}/{validItemsCount} completed
+                  </div>
+                  {(isProcessing || isProcessingLocal) && (
+                    <button
+                      onClick={handleStopProcessing}
+                      className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors"
+                    >
+                      Stop Processing
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -954,11 +994,8 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                 </button>
 
                 <button
-                  onClick={() => {
-                    setItems([]);
-                    localStorage.removeItem(`bulk_items_${imageType}`);
-                  }}
-                  disabled={isProcessing || isProcessingLocal}
+                  onClick={handleClearAll}
+                  disabled={false}
                   className="py-3 px-6 rounded-xl bg-gray-600 text-white font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
                   Clear All

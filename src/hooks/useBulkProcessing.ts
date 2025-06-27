@@ -8,6 +8,8 @@ interface BulkProcessingState {
   startTime: Date | null;
   bulkProcessingId: string | null;
   imageType: 'blog' | 'infographic' | null;
+  completedItems: string[];
+  failedItems: string[];
 }
 
 const STORAGE_KEY = 'seo_engine_bulk_processing';
@@ -30,11 +32,15 @@ export const useBulkProcessing = () => {
             startTime: null,
             bulkProcessingId: null,
             imageType: null,
+            completedItems: [],
+            failedItems: [],
           };
         }
         return {
           ...parsed,
           startTime: parsed.startTime ? new Date(parsed.startTime) : null,
+          completedItems: parsed.completedItems || [],
+          failedItems: parsed.failedItems || [],
         };
       } catch {
         localStorage.removeItem(STORAGE_KEY);
@@ -48,12 +54,14 @@ export const useBulkProcessing = () => {
       startTime: null,
       bulkProcessingId: null,
       imageType: null,
+      completedItems: [],
+      failedItems: [],
     };
   });
 
   const saveState = useCallback((newState: BulkProcessingState) => {
     // Don't save if processing is complete
-    if (newState.processedCount >= newState.totalCount && newState.totalCount > 0) {
+    if (newState.processedCount >= newState.totalCount && newState.totalCount > 0 && !newState.isProcessing) {
       localStorage.removeItem(STORAGE_KEY);
       return;
     }
@@ -70,21 +78,36 @@ export const useBulkProcessing = () => {
       startTime: new Date(),
       bulkProcessingId,
       imageType,
+      completedItems: [],
+      failedItems: [],
     };
     setState(newState);
     saveState(newState);
     return bulkProcessingId;
   }, [saveState]);
 
-  const updateProgress = useCallback((processedCount: number, currentProcessing: string | null = null) => {
+  const updateProgress = useCallback((processedCount: number, currentProcessing: string | null = null, itemId?: string, success?: boolean) => {
     setState(prev => {
-      const newState = {
-        ...prev,
-        processedCount,
-        currentProcessing,
-      };
+      const newState = { ...prev };
       
-      // If processing is complete, mark as not processing
+      // Update processed count
+      newState.processedCount = processedCount;
+      newState.currentProcessing = currentProcessing;
+      
+      // Track completed/failed items
+      if (itemId && success !== undefined) {
+        if (success) {
+          if (!newState.completedItems.includes(itemId)) {
+            newState.completedItems = [...newState.completedItems, itemId];
+          }
+        } else {
+          if (!newState.failedItems.includes(itemId)) {
+            newState.failedItems = [...newState.failedItems, itemId];
+          }
+        }
+      }
+      
+      // Check if processing is complete
       if (processedCount >= prev.totalCount && prev.totalCount > 0) {
         newState.isProcessing = false;
         newState.currentProcessing = null;
@@ -96,17 +119,37 @@ export const useBulkProcessing = () => {
   }, [saveState]);
 
   const completeBulkProcessing = useCallback(() => {
-    const newState: BulkProcessingState = {
-      isProcessing: false,
-      currentProcessing: null,
-      processedCount: 0,
-      totalCount: 0,
-      startTime: null,
-      bulkProcessingId: null,
-      imageType: null,
-    };
-    setState(newState);
-    localStorage.removeItem(STORAGE_KEY);
+    setState(prev => {
+      const newState: BulkProcessingState = {
+        isProcessing: false,
+        currentProcessing: null,
+        processedCount: prev.totalCount, // Keep the final count
+        totalCount: prev.totalCount,
+        startTime: prev.startTime,
+        bulkProcessingId: prev.bulkProcessingId,
+        imageType: prev.imageType,
+        completedItems: prev.completedItems,
+        failedItems: prev.failedItems,
+      };
+      
+      // Clear storage after a delay to allow UI to show completion
+      setTimeout(() => {
+        localStorage.removeItem(STORAGE_KEY);
+        setState({
+          isProcessing: false,
+          currentProcessing: null,
+          processedCount: 0,
+          totalCount: 0,
+          startTime: null,
+          bulkProcessingId: null,
+          imageType: null,
+          completedItems: [],
+          failedItems: [],
+        });
+      }, 5000); // Clear after 5 seconds
+      
+      return newState;
+    });
   }, []);
 
   const getEstimatedTimeRemaining = useCallback(() => {
@@ -119,23 +162,28 @@ export const useBulkProcessing = () => {
     return Math.ceil(remaining / 1000); // Return in seconds
   }, [state]);
 
-  // Auto-complete when all items are processed
-  useEffect(() => {
-    if (state.isProcessing && state.processedCount >= state.totalCount && state.totalCount > 0) {
-      // Add a small delay before completing to ensure UI updates
-      const timer = setTimeout(() => {
-        completeBulkProcessing();
-      }, 2000); // 2 second delay to show completion state
-      
-      return () => clearTimeout(timer);
-    }
-  }, [state.isProcessing, state.processedCount, state.totalCount, completeBulkProcessing]);
+  const resetBulkProcessing = useCallback(() => {
+    const newState: BulkProcessingState = {
+      isProcessing: false,
+      currentProcessing: null,
+      processedCount: 0,
+      totalCount: 0,
+      startTime: null,
+      bulkProcessingId: null,
+      imageType: null,
+      completedItems: [],
+      failedItems: [],
+    };
+    setState(newState);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
 
   return {
     ...state,
     startBulkProcessing,
     updateProgress,
     completeBulkProcessing,
+    resetBulkProcessing,
     getEstimatedTimeRemaining,
   };
 };

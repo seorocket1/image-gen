@@ -90,9 +90,10 @@ function App() {
     }
   }, [activeBanner, notifications]);
 
-  // Listen for bulk processing completion
+  // Listen for bulk processing completion and send instant notification
   useEffect(() => {
     if (!isBulkProcessing && processedCount === totalCount && totalCount > 0) {
+      // Send instant completion notification
       const notificationId = addNotification({
         type: 'success',
         title: 'Bulk Processing Complete!',
@@ -100,7 +101,7 @@ function App() {
         imageCount: totalCount,
         imageType: bulkImageType || undefined,
         isBulkProcessing: true,
-        duration: 3000, // Auto-dismiss after 3 seconds
+        duration: 5000, // Show for 5 seconds
       });
       setActiveBanner(notificationId);
     }
@@ -124,6 +125,16 @@ function App() {
 
   const handleFormSubmit = async (data: any) => {
     if (!user) return;
+
+    // Prevent single image generation during bulk processing
+    if (isBulkProcessing) {
+      addNotification({
+        type: 'warning',
+        title: 'Bulk Processing Active',
+        message: 'Please wait for bulk processing to complete before generating single images.',
+      });
+      return;
+    }
 
     const creditCost = CREDIT_COSTS[selectedType as keyof typeof CREDIT_COSTS];
     

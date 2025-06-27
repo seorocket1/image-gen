@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Image, Wand2, Package, ChevronDown } from 'lucide-react';
 import { sanitizeFormData } from '../utils/textSanitizer';
 import { BulkProcessingModal } from './BulkProcessingModal';
+import { useBulkProcessing } from '../hooks/useBulkProcessing';
 
 interface InfographicFormProps {
   onSubmit: (data: { content: string; style?: string; colour?: string }) => void;
@@ -42,7 +43,7 @@ const COLOUR_OPTIONS = [
 export const InfographicForm: React.FC<InfographicFormProps> = ({ 
   onSubmit, 
   isLoading, 
-  isBulkProcessing = false 
+  isBulkProcessing: propIsBulkProcessing = false 
 }) => {
   const [content, setContent] = useState('');
   const [style, setStyle] = useState('');
@@ -50,6 +51,12 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
   const [colour, setColour] = useState('');
   const [customColour, setCustomColour] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+
+  // Get bulk processing state from hook
+  const { isProcessing: isBulkProcessing } = useBulkProcessing();
+
+  // Use either prop or hook state
+  const bulkProcessingActive = propIsBulkProcessing || isBulkProcessing;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +85,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              disabled={isBulkProcessing}
+              disabled={bulkProcessingActive}
               className="w-full flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 resize-none min-h-[250px] disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter the content, data points, statistics, or blog section you want to visualize as an infographic..."
               required
@@ -100,7 +107,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
                   id="style"
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {STYLE_OPTIONS.map((option) => (
@@ -116,7 +123,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
                   type="text"
                   value={customStyle}
                   onChange={(e) => setCustomStyle(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Specify custom style..."
                 />
@@ -133,7 +140,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
                   id="colour"
                   value={colour}
                   onChange={(e) => setColour(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {COLOUR_OPTIONS.map((option) => (
@@ -149,7 +156,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
                   type="text"
                   value={customColour}
                   onChange={(e) => setCustomColour(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Specify custom colour..."
                 />
@@ -161,7 +168,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
         <div className="space-y-3">
           <button
             type="submit"
-            disabled={!content.trim() || isLoading || isBulkProcessing}
+            disabled={!content.trim() || isLoading || bulkProcessingActive}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg"
           >
             {isLoading ? (
@@ -169,7 +176,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                 Generating Infographic...
               </div>
-            ) : isBulkProcessing ? (
+            ) : bulkProcessingActive ? (
               <div className="flex items-center justify-center">
                 <Package className="w-5 h-5 mr-2" />
                 Bulk Processing Active
@@ -190,7 +197,7 @@ export const InfographicForm: React.FC<InfographicFormProps> = ({
           >
             <div className="flex items-center justify-center">
               <Package className="w-5 h-5 mr-2" />
-              {isBulkProcessing ? 'View Bulk Processing' : 'Bulk Process Multiple Infographics'}
+              {bulkProcessingActive ? 'View Bulk Processing' : 'Bulk Process Multiple Infographics'}
             </div>
           </button>
         </div>

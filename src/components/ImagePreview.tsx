@@ -266,9 +266,10 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
             <div className="mt-6">
               <button
                 onClick={onGenerateNew}
-                className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
+                disabled={isBulkProcessing}
+                className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-[1.02] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
-                Generate Another Image
+                {isBulkProcessing ? 'Bulk Processing Active' : 'Generate Another Image'}
               </button>
             </div>
           </div>

@@ -77,14 +77,19 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   const [items, setItems] = useState<BulkItem[]>([]);
   const [previewImage, setPreviewImage] = useState<{ base64: string; title: string; item: BulkItem } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isProcessingLocal, setIsProcessingLocal] = useState(false);
 
   const { 
     isProcessing, 
     currentProcessing, 
+    processedCount,
+    totalCount,
     startBulkProcessing, 
     updateProgress, 
     completeBulkProcessing,
-    bulkProcessingId 
+    bulkProcessingId,
+    completedItems,
+    failedItems
   } = useBulkProcessing();
   
   const { addNotification } = useNotifications();
@@ -110,6 +115,26 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       localStorage.setItem(`bulk_items_${imageType}`, JSON.stringify(items));
     }
   }, [items, imageType]);
+
+  // Update items status based on bulk processing state
+  useEffect(() => {
+    if (isProcessing && items.length > 0) {
+      setItems(prevItems => 
+        prevItems.map(item => {
+          if (completedItems.includes(item.id)) {
+            return { ...item, status: 'completed' as const };
+          }
+          if (failedItems.includes(item.id)) {
+            return { ...item, status: 'error' as const };
+          }
+          if (currentProcessing === item.id) {
+            return { ...item, status: 'processing' as const };
+          }
+          return item;
+        })
+      );
+    }
+  }, [isProcessing, currentProcessing, completedItems, failedItems, items.length]);
 
   if (!isOpen) return null;
 
@@ -265,8 +290,11 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   };
 
   const processBulkItems = async () => {
-    console.log('processBulkItems called'); // Debug log
-    
+    if (isProcessing || isProcessingLocal) {
+      console.log('Already processing, skipping...');
+      return;
+    }
+
     const validItems = items.filter(item => {
       if (item.type === 'blog') {
         return item.data.title?.trim() && item.data.intro?.trim();
@@ -274,8 +302,6 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
         return item.data.content?.trim();
       }
     });
-
-    console.log('Valid items:', validItems.length); // Debug log
 
     if (validItems.length === 0) {
       addNotification({
@@ -290,8 +316,6 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
     const creditCost = CREDIT_COSTS[imageType];
     const totalCreditsNeeded = validItems.length * creditCost;
     
-    console.log('Credits needed:', totalCreditsNeeded, 'User credits:', user?.credits); // Debug log
-    
     if (!user || user.credits < totalCreditsNeeded) {
       addNotification({
         type: 'error',
@@ -301,88 +325,92 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
       return;
     }
 
-    console.log('Starting bulk processing...'); // Debug log
+    setIsProcessingLocal(true);
 
-    // Deduct credits upfront for all items
-    const creditsDeducted = await deductCredits(totalCreditsNeeded, imageType);
-    if (!creditsDeducted) {
+    try {
+      // Deduct credits upfront for all items
+      const creditsDeducted = await deductCredits(totalCreditsNeeded, imageType);
+      if (!creditsDeducted) {
+        addNotification({
+          type: 'error',
+          title: 'Credit Deduction Failed',
+          message: 'Failed to deduct credits. Please try again.',
+        });
+        return;
+      }
+
+      const bulkId = startBulkProcessing(validItems.length, imageType);
+      const updatedItems = [...items];
+      let processedCount = 0;
+
+      // Add bulk processing start notification
+      addNotification({
+        type: 'info',
+        title: 'Bulk Processing Started',
+        message: `Processing ${validItems.length} ${imageType} images. You can close this modal and continue working.`,
+        isBulkProcessing: true,
+        bulkProcessingId: bulkId,
+        imageType,
+        imageCount: validItems.length,
+      });
+
+      for (let i = 0; i < updatedItems.length; i++) {
+        const item = updatedItems[i];
+        
+        // Skip items that don't have valid data
+        if (item.type === 'blog' && (!item.data.title?.trim() || !item.data.intro?.trim())) {
+          continue;
+        }
+        if (item.type === 'infographic' && !item.data.content?.trim()) {
+          continue;
+        }
+        
+        if (item.status !== 'pending') continue;
+
+        updatedItems[i] = { ...updatedItems[i], status: 'processing' };
+        setItems([...updatedItems]);
+        updateProgress(processedCount, item.id);
+
+        // Add delay between requests to avoid overwhelming the server
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        const processedItem = await processItem(updatedItems[i]);
+        updatedItems[i] = processedItem;
+        setItems([...updatedItems]);
+        
+        processedCount++;
+        updateProgress(processedCount, null, item.id, processedItem.status === 'completed');
+      }
+
+      // Complete bulk processing
+      completeBulkProcessing();
+
+      // Add completion notification
+      addNotification({
+        type: 'success',
+        title: 'Bulk Processing Complete!',
+        message: `Successfully generated ${processedCount} ${imageType} images. All your images are ready for download.`,
+        isBulkProcessing: true,
+        bulkProcessingId: bulkId,
+        imageType,
+        imageCount: processedCount,
+        duration: 5000,
+      });
+      
+      // Clear saved items after successful completion
+      localStorage.removeItem(`bulk_items_${imageType}`);
+    } catch (error) {
+      console.error('Bulk processing error:', error);
       addNotification({
         type: 'error',
-        title: 'Credit Deduction Failed',
-        message: 'Failed to deduct credits. Please try again.',
+        title: 'Bulk Processing Failed',
+        message: 'An error occurred during bulk processing. Please try again.',
       });
-      return;
+    } finally {
+      setIsProcessingLocal(false);
     }
-
-    console.log('Credits deducted successfully'); // Debug log
-
-    const bulkId = startBulkProcessing(validItems.length, imageType);
-    const updatedItems = [...items];
-    let processedCount = 0;
-
-    // Add bulk processing start notification
-    addNotification({
-      type: 'info',
-      title: 'Bulk Processing Started',
-      message: `Processing ${validItems.length} ${imageType} images. You can close this modal and continue working.`,
-      isBulkProcessing: true,
-      bulkProcessingId: bulkId,
-      imageType,
-      imageCount: validItems.length,
-    });
-
-    console.log('Starting processing loop...'); // Debug log
-
-    for (let i = 0; i < updatedItems.length; i++) {
-      const item = updatedItems[i];
-      
-      // Skip items that don't have valid data
-      if (item.type === 'blog' && (!item.data.title?.trim() || !item.data.intro?.trim())) {
-        continue;
-      }
-      if (item.type === 'infographic' && !item.data.content?.trim()) {
-        continue;
-      }
-      
-      if (item.status !== 'pending') continue;
-
-      console.log(`Processing item ${i + 1}:`, item.id); // Debug log
-
-      updatedItems[i] = { ...updatedItems[i], status: 'processing' };
-      setItems([...updatedItems]);
-      updateProgress(processedCount, item.id);
-
-      // Add delay between requests to avoid overwhelming the server
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-
-      const processedItem = await processItem(updatedItems[i]);
-      updatedItems[i] = processedItem;
-      setItems([...updatedItems]);
-      
-      processedCount++;
-      updateProgress(processedCount);
-      
-      console.log(`Completed item ${i + 1}, total processed: ${processedCount}`); // Debug log
-    }
-
-    console.log('Bulk processing completed'); // Debug log
-
-    // Add completion notification
-    addNotification({
-      type: 'success',
-      title: 'Bulk Processing Complete!',
-      message: `Successfully generated ${processedCount} ${imageType} images. All your images are ready for download.`,
-      isBulkProcessing: true,
-      bulkProcessingId: bulkId,
-      imageType,
-      imageCount: processedCount,
-      duration: 3000, // Auto-dismiss after 3 seconds
-    });
-    
-    // Clear saved items after successful completion
-    localStorage.removeItem(`bulk_items_${imageType}`);
   };
 
   const downloadAllAsZip = async () => {
@@ -496,6 +524,9 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
   const creditCost = CREDIT_COSTS[imageType];
   const totalCreditsNeeded = validItemsCount * creditCost;
 
+  // Determine if processing is disabled
+  const isProcessingDisabled = isProcessing || isProcessingLocal || validItemsCount === 0 || (user && user.credits < totalCreditsNeeded);
+
   return (
     <>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -547,6 +578,13 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                       Insufficient credits (have {user.credits})
                     </span>
                   )}
+                </div>
+              )}
+              {(isProcessing || isProcessingLocal) && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700 font-medium">
+                    Bulk processing is active. Single image generation is disabled.
+                  </p>
                 </div>
               )}
             </div>
@@ -625,7 +663,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                           )}
                           <button
                             onClick={() => removeItem(item.id)}
-                            disabled={isProcessing}
+                            disabled={isProcessing || isProcessingLocal}
                             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -644,7 +682,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                               type="text"
                               value={item.data.title || ''}
                               onChange={(e) => updateItemData(item.id, { ...item.data, title: e.target.value })}
-                              disabled={isProcessing}
+                              disabled={isProcessing || isProcessingLocal}
                               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                               placeholder="Enter blog title..."
                             />
@@ -656,7 +694,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                             <textarea
                               value={item.data.intro || ''}
                               onChange={(e) => updateItemData(item.id, { ...item.data, intro: e.target.value })}
-                              disabled={isProcessing}
+                              disabled={isProcessing || isProcessingLocal}
                               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 resize-none h-24 disabled:opacity-50"
                               placeholder="Enter blog content, summary, or keywords..."
                             />
@@ -672,7 +710,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.style || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, style: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {STYLE_OPTIONS.map((option) => (
@@ -688,7 +726,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customStyle || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customStyle: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom style..."
                                 />
@@ -703,7 +741,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.colour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, colour: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {COLOUR_OPTIONS.map((option) => (
@@ -719,7 +757,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customColour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customColour: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom colour..."
                                 />
@@ -736,7 +774,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                             <textarea
                               value={item.data.content || ''}
                               onChange={(e) => updateItemData(item.id, { ...item.data, content: e.target.value })}
-                              disabled={isProcessing}
+                              disabled={isProcessing || isProcessingLocal}
                               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 resize-none h-32 disabled:opacity-50"
                               placeholder="Enter content, data points, or statistics to visualize..."
                             />
@@ -752,7 +790,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.style || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, style: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {STYLE_OPTIONS.map((option) => (
@@ -768,7 +806,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customStyle || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customStyle: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom style..."
                                 />
@@ -783,7 +821,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                 <select
                                   value={item.data.colour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, colour: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50"
                                 >
                                   {COLOUR_OPTIONS.map((option) => (
@@ -799,7 +837,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                                   type="text"
                                   value={item.data.customColour || ''}
                                   onChange={(e) => updateItemData(item.id, { ...item.data, customColour: e.target.value })}
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isProcessingLocal}
                                   className="w-full mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 disabled:opacity-50"
                                   placeholder="Specify custom colour..."
                                 />
@@ -849,7 +887,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
               {/* Add More Item Button */}
               <button
                 onClick={addNewItem}
-                disabled={isProcessing}
+                disabled={isProcessing || isProcessingLocal}
                 className="w-full py-4 px-6 rounded-xl border-2 border-dashed border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >
                 <div className="flex items-center justify-center">
@@ -887,14 +925,11 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
             <div className="bg-gray-50 p-6 border-t border-gray-200 flex-shrink-0">
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
-                  onClick={() => {
-                    console.log('Process button clicked'); // Debug log
-                    processBulkItems();
-                  }}
-                  disabled={isProcessing || validItemsCount === 0 || (user && user.credits < totalCreditsNeeded)}
+                  onClick={processBulkItems}
+                  disabled={isProcessingDisabled}
                   className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
-                  {isProcessing ? (
+                  {isProcessing || isProcessingLocal ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                       Processing... ({completedCount}/{validItemsCount})
@@ -923,7 +958,7 @@ export const BulkProcessingModal: React.FC<BulkProcessingModalProps> = ({
                     setItems([]);
                     localStorage.removeItem(`bulk_items_${imageType}`);
                   }}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isProcessingLocal}
                   className="py-3 px-6 rounded-xl bg-gray-600 text-white font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
                   Clear All

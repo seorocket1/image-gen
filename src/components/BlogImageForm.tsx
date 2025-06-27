@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Wand2, Package, ChevronDown } from 'lucide-react';
 import { sanitizeFormData } from '../utils/textSanitizer';
 import { BulkProcessingModal } from './BulkProcessingModal';
+import { useBulkProcessing } from '../hooks/useBulkProcessing';
 
 interface BlogImageFormProps {
   onSubmit: (data: { title: string; intro: string; style?: string; colour?: string }) => void;
@@ -42,7 +43,7 @@ const COLOUR_OPTIONS = [
 export const BlogImageForm: React.FC<BlogImageFormProps> = ({ 
   onSubmit, 
   isLoading, 
-  isBulkProcessing = false 
+  isBulkProcessing: propIsBulkProcessing = false 
 }) => {
   const [title, setTitle] = useState('');
   const [intro, setIntro] = useState('');
@@ -51,6 +52,12 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
   const [colour, setColour] = useState('');
   const [customColour, setCustomColour] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+
+  // Get bulk processing state from hook
+  const { isProcessing: isBulkProcessing } = useBulkProcessing();
+
+  // Use either prop or hook state
+  const bulkProcessingActive = propIsBulkProcessing || isBulkProcessing;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +88,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              disabled={isBulkProcessing}
+              disabled={bulkProcessingActive}
               className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter your blog title..."
               required
@@ -96,7 +103,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
               id="intro"
               value={intro}
               onChange={(e) => setIntro(e.target.value)}
-              disabled={isBulkProcessing}
+              disabled={bulkProcessingActive}
               className="w-full flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 resize-none min-h-[200px] disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter your blog content, summary, or keywords that should influence the visual design..."
               required
@@ -118,7 +125,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
                   id="style"
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {STYLE_OPTIONS.map((option) => (
@@ -134,7 +141,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
                   type="text"
                   value={customStyle}
                   onChange={(e) => setCustomStyle(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Specify custom style..."
                 />
@@ -151,7 +158,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
                   id="colour"
                   value={colour}
                   onChange={(e) => setColour(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {COLOUR_OPTIONS.map((option) => (
@@ -167,7 +174,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
                   type="text"
                   value={customColour}
                   onChange={(e) => setCustomColour(e.target.value)}
-                  disabled={isBulkProcessing}
+                  disabled={bulkProcessingActive}
                   className="w-full mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Specify custom colour..."
                 />
@@ -179,7 +186,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
         <div className="space-y-3">
           <button
             type="submit"
-            disabled={!title.trim() || !intro.trim() || isLoading || isBulkProcessing}
+            disabled={!title.trim() || !intro.trim() || isLoading || bulkProcessingActive}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg"
           >
             {isLoading ? (
@@ -187,7 +194,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                 Generating Image...
               </div>
-            ) : isBulkProcessing ? (
+            ) : bulkProcessingActive ? (
               <div className="flex items-center justify-center">
                 <Package className="w-5 h-5 mr-2" />
                 Bulk Processing Active
@@ -208,7 +215,7 @@ export const BlogImageForm: React.FC<BlogImageFormProps> = ({
           >
             <div className="flex items-center justify-center">
               <Package className="w-5 h-5 mr-2" />
-              {isBulkProcessing ? 'View Bulk Processing' : 'Bulk Process Multiple Blogs'}
+              {bulkProcessingActive ? 'View Bulk Processing' : 'Bulk Process Multiple Blogs'}
             </div>
           </button>
         </div>
